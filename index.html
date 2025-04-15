@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResQGo Admin Panel</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Firebase SDK is now imported directly in app.js using ES modules -->
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo">
+            <h1>ResQGo Admin</h1>
+        </div>
+        <div class="user-info" id="user-info">
+            <span id="user-email"></span>
+            <button id="logout-btn" class="btn btn-secondary">Logout</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Login Container -->
+        <div id="login-container" class="auth-container">
+            <div class="auth-box">
+                <h2>Admin Login</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <div class="form-error" id="login-error"></div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Content (hidden initially) -->
+        <div id="admin-content" class="admin-content" style="display: none;">
+            <!-- Dashboard Summary -->
+            <div class="dashboard-summary">
+                <div class="stat-card">
+                    <div class="stat-value" id="pending-count">0</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="accepted-count">0</div>
+                    <div class="stat-label">Accepted</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="rejected-count">0</div>
+                    <div class="stat-label">Rejected</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-count">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="filter-controls">
+                <label for="status-filter">Filter by Status:</label>
+                <select id="status-filter" class="form-control">
+                    <option value="all">All Requests</option>
+                    <option value="pending">Pending</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+
+            <!-- Requests Table -->
+            <div class="table-container">
+                <table id="requests-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Item Needed</th>
+                            <th>Service Type</th>
+                            <th>Time</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requests-table-body">
+                        <!-- Table rows will be added here dynamically -->
+                    </tbody>
+                </table>
+
+                <!-- Loading indicator -->
+                <div id="loading-indicator" class="loading-indicator">
+                    <div class="spinner"></div>
+                    <p>Loading data...</p>
+                </div>
+
+                <!-- No data message -->
+                <div id="no-data-message" class="no-data-message" style="display: none;">
+                    No requests found.
+                </div>
+            </div>
+        </div>
+
+        <!-- Request Details Modal -->
+        <div id="request-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Request Details</h2>
+                    <span id="close-modal" class="close-btn">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div id="request-details" class="request-details">
+                        <!-- Details will be added here dynamically -->
+                    </div>
+                    <div class="request-actions">
+                        <button id="accept-btn" class="btn btn-success">Accept Request</button>
+                        <button id="reject-btn" class="btn btn-danger">Reject Request</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 ResQGo. All rights reserved.</p>
+    </footer>
+
+    <!-- App Logic -->
+    <script type="module" src="app.js"></script>
+</body>
+</html> 
