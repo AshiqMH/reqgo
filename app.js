@@ -143,7 +143,7 @@ function setupFirestoreListener() {
     requestsTableBody.innerHTML = '';
     noDataMessage.style.display = 'none';
     
-    let q = collection(db, "requests");
+    let q = collection(db, "help_requests");
     q = query(q, orderBy("timestamp", "desc"));
     
     const selectedFilter = statusFilter.value;
@@ -219,11 +219,11 @@ function createRequestRow(id, request) {
     // Build the row
     row.innerHTML = `
         <td>${id.substring(0, 8)}...</td>
-        <td>${request.userId || 'N/A'}</td>
+        <td>${request.userEmail || 'N/A'}</td>
         <td>${request.itemNeeded || 'N/A'}</td>
-        <td>${request.serviceType || 'N/A'}</td>
+        <td>${request.emergencyType || 'N/A'}</td>
         <td>${timestamp}</td>
-        <td>${request.location?.address || 'N/A'}</td>
+        <td>${request.locationName || 'N/A'}</td>
     `;
     
     // Add status badge
@@ -264,16 +264,16 @@ function showRequestDetails(requestId) {
             <div class="detail-value">${request.userEmail || 'Anonymous'}</div>
         </div>
         <div class="detail-item">
-            <div class="detail-label">Service Type:</div>
-            <div class="detail-value">${request.serviceType || 'N/A'}</div>
+            <div class="detail-label">Emergency Type:</div>
+            <div class="detail-value">${request.emergencyType || 'N/A'}</div>
+        </div>
+        <div class="detail-item">
+            <div class="detail-label">Agent Type:</div>
+            <div class="detail-value">${request.agentType || 'N/A'}</div>
         </div>
         <div class="detail-item">
             <div class="detail-label">Item Needed:</div>
             <div class="detail-value">${request.itemNeeded || 'N/A'}</div>
-        </div>
-        <div class="detail-item">
-            <div class="detail-label">Emergency:</div>
-            <div class="detail-value">${request.isEmergency ? 'Yes' : 'No'}</div>
         </div>
         <div class="detail-item">
             <div class="detail-label">Time Requested:</div>
@@ -281,7 +281,11 @@ function showRequestDetails(requestId) {
         </div>
         <div class="detail-item">
             <div class="detail-label">Location:</div>
-            <div class="detail-value">${request.location?.address || 'N/A'}</div>
+            <div class="detail-value">${request.locationName || 'N/A'}</div>
+        </div>
+        <div class="detail-item">
+            <div class="detail-label">Coordinates:</div>
+            <div class="detail-value">Lat: ${request.latitude}, Lng: ${request.longitude}</div>
         </div>
         <div class="detail-item">
             <div class="detail-label">Notes:</div>
@@ -317,7 +321,7 @@ function showRequestDetails(requestId) {
 async function updateRequestStatus(requestId, status) {
     try {
         // Update status in Firestore
-        const requestRef = doc(db, "requests", requestId);
+        const requestRef = doc(db, "help_requests", requestId);
         await updateDoc(requestRef, {
             status: status,
             updatedAt: new Date()
