@@ -62,7 +62,7 @@ const totalCount = document.getElementById('total-count');
 
 // Add DOM elements for admin management
 const adminCreateForm = document.getElementById('admin-create-form');
-const userEmailInput = document.getElementById('user-email');
+const userEmailInput = document.getElementById('admin-user-email');
 const adminStatus = document.getElementById('admin-status');
 
 // Current request being viewed
