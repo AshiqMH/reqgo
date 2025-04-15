@@ -15,7 +15,8 @@ import {
     doc, 
     updateDoc, 
     onSnapshot,
-    orderBy 
+    orderBy,
+    getDoc
 } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
 // Firebase configuration
@@ -54,10 +55,15 @@ const acceptButton = document.getElementById('accept-btn');
 const rejectButton = document.getElementById('reject-btn');
 
 // Stats elements
-const pendingCount = document.getElementById('pendingCount');
-const acceptedCount = document.getElementById('acceptedCount');
-const rejectedCount = document.getElementById('rejectedCount');
-const totalCount = document.getElementById('totalCount');
+const pendingCount = document.getElementById('pending-count');
+const acceptedCount = document.getElementById('accepted-count');
+const rejectedCount = document.getElementById('rejected-count');
+const totalCount = document.getElementById('total-count');
+
+// Add DOM elements for admin management
+const adminCreateForm = document.getElementById('admin-create-form');
+const userEmailInput = document.getElementById('user-email');
+const adminStatus = document.getElementById('admin-status');
 
 // Current request being viewed
 let currentRequestId = null;
@@ -97,6 +103,42 @@ loginForm.addEventListener('submit', (e) => {
     loginError.textContent = '';
     
     signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+            // Check if user has admin role
+            const user = userCredential.user;
+            
+            // Get user document from Firestore
+            const userDocRef = doc(db, "users", user.uid);
+            getDoc(userDocRef)
+                .then((docSnapshot) => {
+                    if (docSnapshot.exists()) {
+                        const userData = docSnapshot.data();
+                        
+                        // Check if user has admin role
+                        if (userData.role === "admin") {
+                            // User is admin, proceed with login
+                            console.log("Admin login successful");
+                            // Auth state change listener will handle the rest
+                        } else {
+                            // User is not an admin, sign them out
+                            signOut(auth).then(() => {
+                                loginError.textContent = "Access denied. Only administrators can access this panel.";
+                            });
+                        }
+                    } else {
+                        // User document doesn't exist
+                        signOut(auth).then(() => {
+                            loginError.textContent = "User profile not found. Please contact support.";
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error checking admin status:", error);
+                    signOut(auth).then(() => {
+                        loginError.textContent = "Error verifying account. Please try again.";
+                    });
+                });
+        })
         .catch((error) => {
             const errorMessage = error.message;
             loginError.textContent = errorMessage;
@@ -363,9 +405,9 @@ function showLoading(show) {
     }
 }
 
-// Initialize the app
+// Init function updated to hide admin management initially
 function init() {
-    // Hide admin content initially
+    // Hide admin content and admin management initially
     adminContent.style.display = 'none';
     
     // Ensure loading indicator is hidden initially
@@ -373,4 +415,72 @@ function init() {
 }
 
 // Start the app
-init(); 
+init();
+
+// Admin create form submission
+adminCreateForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // Get user email
+    const userEmail = userEmailInput.value.trim();
+    if (!userEmail) {
+        showAdminStatus('Please enter a valid email address', false);
+        return;
+    }
+    
+    // Clear previous status
+    showAdminStatus('', null);
+    
+    try {
+        // Query Firestore to find the user by email
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("email", "==", userEmail));
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+            showAdminStatus(`No user found with email: ${userEmail}`, false);
+            return;
+        }
+        
+        // Get the first user document
+        const userDoc = querySnapshot.docs[0];
+        const userId = userDoc.id;
+        const userData = userDoc.data();
+        
+        // Check if user is already an admin
+        if (userData.role === "admin") {
+            showAdminStatus(`User ${userEmail} is already an admin`, false);
+            return;
+        }
+        
+        // Update user's role to admin
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, {
+            role: "admin",
+            updatedAt: new Date()
+        });
+        
+        // Show success message
+        showAdminStatus(`User ${userEmail} has been set as an admin successfully!`, true);
+        
+        // Clear form
+        userEmailInput.value = '';
+    } catch (error) {
+        console.error("Error setting user as admin:", error);
+        showAdminStatus(`Error: ${error.message}`, false);
+    }
+});
+
+// Show admin status message
+function showAdminStatus(message, isSuccess) {
+    adminStatus.textContent = message;
+    
+    // Reset classes
+    adminStatus.classList.remove('success', 'error');
+    
+    if (isSuccess === true) {
+        adminStatus.classList.add('success');
+    } else if (isSuccess === false) {
+        adminStatus.classList.add('error');
+    }
+} 
