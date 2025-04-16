@@ -16,7 +16,9 @@ import {
     updateDoc, 
     onSnapshot,
     orderBy,
-    getDoc
+    getDoc,
+    addDoc,
+    setDoc
 } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
 // Firebase configuration
@@ -295,6 +297,12 @@ function showRequestDetails(requestId) {
     const formattedDate = timestamp.toLocaleDateString();
     const formattedTime = timestamp.toLocaleTimeString();
     
+    // Format status with notification indicator
+    let statusHtml = `<span class="status-badge status-${request.status}">${request.status}</span>`;
+    if (request.status !== 'pending' && request.notificationSent) {
+        statusHtml += `<span class="notification-sent">Notification sent</span>`;
+    }
+    
     // Create HTML for request details
     let detailsHtml = `
         <div class="detail-item">
@@ -335,7 +343,7 @@ function showRequestDetails(requestId) {
         </div>
         <div class="detail-item">
             <div class="detail-label">Status:</div>
-            <div class="detail-value status-${request.status}">${request.status}</div>
+            <div class="detail-value">${statusHtml}</div>
         </div>
     `;
     
@@ -362,18 +370,79 @@ function showRequestDetails(requestId) {
 // Update request status
 async function updateRequestStatus(requestId, status) {
     try {
-        // Update status in Firestore
+        console.log(`Starting to update request: ${requestId} to status: ${status}`);
+        
+        // Get the request data first to get user information
         const requestRef = doc(db, "help_requests", requestId);
+        const requestSnapshot = await getDoc(requestRef);
+        
+        if (!requestSnapshot.exists()) {
+            alert("Request not found");
+            return;
+        }
+        
+        const requestData = requestSnapshot.data();
+        const userEmail = requestData.userEmail;
+        const userId = requestData.userId;
+        
+        console.log(`Request data found - UserID: ${userId}, Email: ${userEmail}`);
+        
+        // Update status in Firestore
         await updateDoc(requestRef, {
             status: status,
-            updatedAt: new Date()
+            updatedAt: new Date(),
+            notificationSent: true
         });
+        
+        console.log(`Request ${requestId} status updated to ${status}`);
+        
+        // Get user's document to check for FCM token
+        if (userId) {
+            try {
+                console.log(`Checking for user document: ${userId}`);
+                const userRef = doc(db, "users", userId);
+                const userSnapshot = await getDoc(userRef);
+                
+                if (userSnapshot.exists()) {
+                    console.log(`User document exists. Has FCM token: ${!!userSnapshot.data().fcmToken}`);
+                    
+                    const fcmToken = userSnapshot.data().fcmToken;
+                    
+                    // Create a notification record
+                    const notificationsRef = collection(db, "notifications");
+                    const newNotification = {
+                        userId: userId,
+                        userEmail: userEmail,
+                        requestId: requestId,
+                        status: status,
+                        message: `Your roadside assistance request has been ${status}`,
+                        timestamp: new Date(),
+                        read: false
+                    };
+                    
+                    // Add FCM token if available
+                    if (fcmToken) {
+                        newNotification.fcmToken = fcmToken;
+                    }
+                    
+                    const notificationRef = await addDoc(notificationsRef, newNotification);
+                    console.log(`Notification created with ID: ${notificationRef.id}`);
+                } else {
+                    console.log(`No user document found for ID: ${userId}`);
+                }
+            } catch (error) {
+                console.error("Error sending notification:", error);
+                // Continue with the status update even if notification fails
+            }
+        } else {
+            console.warn("No userId found in the request data. Cannot send notification.");
+        }
         
         // Close modal
         requestDetailsModal.style.display = 'none';
         
         // Show success message
-        alert(`Request ${status} successfully`);
+        alert(`Request ${status} successfully. User will be notified.`);
     } catch (error) {
         console.error("Error updating request status: ", error);
         alert("Error updating request status. Please try again.");
@@ -438,8 +507,46 @@ adminCreateForm.addEventListener('submit', async (e) => {
         const querySnapshot = await getDocs(q);
         
         if (querySnapshot.empty) {
-            showAdminStatus(`No user found with email: ${userEmail}`, false);
-            return;
+            // User not found in Firestore, check Firebase Auth first
+            showAdminStatus(`Creating Firestore document for user: ${userEmail}`, null);
+            
+            try {
+                // We need to check if user exists in Firebase Auth
+                // Since we can't directly query Auth from client-side code, 
+                // we'll add the user document to Firestore based on the email
+                
+                // Create new user document with admin role
+                const newUserData = {
+                    email: userEmail,
+                    role: "admin",
+                    name: "",
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    isVerified: false
+                };
+                
+                // Use email as document ID (replace @ and . with safe characters)
+                // NOTE: For proper integration with the app, you should:
+                // 1. Go to Firebase console > Authentication
+                // 2. Find the user by email
+                // 3. Copy their actual UID
+                // 4. Replace the document created here with one using the actual UID
+                const safeId = userEmail.replace(/[.@]/g, '_');
+                const userRef = doc(db, "users", safeId);
+                
+                await setDoc(userRef, newUserData);
+                
+                // Show success message with instructions
+                showAdminStatus(`User ${userEmail} added as admin successfully! IMPORTANT: Find the user's UID in Firebase Authentication console and update this document's ID to match it.`, true);
+                
+                // Clear form
+                userEmailInput.value = '';
+                return;
+            } catch (authError) {
+                console.error("Error creating user document:", authError);
+                showAdminStatus(`No user found with email: ${userEmail}`, false);
+                return;
+            }
         }
         
         // Get the first user document
@@ -473,7 +580,7 @@ adminCreateForm.addEventListener('submit', async (e) => {
 
 // Show admin status message
 function showAdminStatus(message, isSuccess) {
-    adminStatus.textContent = message;
+    adminStatus.innerHTML = message; // Use innerHTML to allow line breaks
     
     // Reset classes
     adminStatus.classList.remove('success', 'error');
@@ -482,5 +589,19 @@ function showAdminStatus(message, isSuccess) {
         adminStatus.classList.add('success');
     } else if (isSuccess === false) {
         adminStatus.classList.add('error');
+    }
+    
+    // Add some styling for better readability of long messages
+    if (message && message.length > 50) {
+        adminStatus.style.whiteSpace = 'pre-line';
+        adminStatus.style.lineHeight = '1.5';
+        adminStatus.style.padding = '10px';
+        
+        // Replace the exclamation mark and "IMPORTANT" with breaks for readability
+        adminStatus.innerHTML = adminStatus.innerHTML
+            .replace('! IMPORTANT:', '!<br><br><strong>IMPORTANT:</strong><br>');
+    } else {
+        adminStatus.style.whiteSpace = 'normal';
+        adminStatus.style.padding = '5px';
     }
 } 
