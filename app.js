@@ -18,7 +18,9 @@ import {
     orderBy,
     getDoc,
     addDoc,
-    setDoc
+    setDoc,
+    limit,
+    deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
 // Firebase configuration
@@ -112,7 +114,7 @@ loginForm.addEventListener('submit', (e) => {
             // Get user document from Firestore
             const userDocRef = doc(db, "users", user.uid);
             getDoc(userDocRef)
-                .then((docSnapshot) => {
+                .then(async (docSnapshot) => {
                     if (docSnapshot.exists()) {
                         const userData = docSnapshot.data();
                         
@@ -128,10 +130,38 @@ loginForm.addEventListener('submit', (e) => {
                             });
                         }
                     } else {
-                        // User document doesn't exist
-                        signOut(auth).then(() => {
-                            loginError.textContent = "User profile not found. Please contact support.";
-                        });
+                        // User document doesn't exist, check for temporary admin document
+                        console.log("Checking for temporary admin document");
+                        
+                        // Look for temporary document with this email
+                        const tempId = `temp_${email.replace(/[.@]/g, '_')}`;
+                        const tempDocRef = doc(db, "users", tempId);
+                        const tempDocSnapshot = await getDoc(tempDocRef);
+                        
+                        if (tempDocSnapshot.exists() && tempDocSnapshot.data().role === "admin") {
+                            // Found temporary admin, copy to permanent document with correct UID
+                            console.log("Found temporary admin document, migrating to permanent UID");
+                            
+                            const tempData = tempDocSnapshot.data();
+                            
+                            // Create permanent document with correct UID
+                            await setDoc(userDocRef, {
+                                ...tempData,
+                                isTemporary: false,
+                                updatedAt: new Date()
+                            });
+                            
+                            // Delete temporary document
+                            await deleteDoc(tempDocRef);
+                            
+                            console.log("Admin document migrated successfully");
+                            // Auth state change listener will handle the rest
+                        } else {
+                            // User is not an admin, sign them out
+                            signOut(auth).then(() => {
+                                loginError.textContent = "User profile not found. Please contact support.";
+                            });
+                        }
                     }
                 })
                 .catch((error) => {
@@ -501,21 +531,46 @@ adminCreateForm.addEventListener('submit', async (e) => {
     showAdminStatus('', null);
     
     try {
-        // Query Firestore to find the user by email
+        // First, check if the user exists in Firebase Authentication
+        // Since we can't directly query Auth from client side, we'll look for existing Firestore documents
+        // that might have the user's info
+        
+        // Check for existing user documents with this email
+        showAdminStatus(`Checking for user: ${userEmail}...`, null);
+        
+        // Try to find any user document with this email (in users collection)
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", userEmail));
         const querySnapshot = await getDocs(q);
         
         if (querySnapshot.empty) {
-            // User not found in Firestore, check Firebase Auth first
-            showAdminStatus(`Creating Firestore document for user: ${userEmail}`, null);
+            // Next, try to find a document in notifications or help_requests that might have the user's ID
+            showAdminStatus(`Searching for user UID across multiple collections...`, null);
             
-            try {
-                // We need to check if user exists in Firebase Auth
-                // Since we can't directly query Auth from client-side code, 
-                // we'll add the user document to Firestore based on the email
+            let foundUserId = null;
+            
+            // Check notifications collection
+            const notificationsRef = collection(db, "notifications");
+            const notificationsQuery = query(notificationsRef, where("userEmail", "==", userEmail), limit(1));
+            const notificationsSnapshot = await getDocs(notificationsQuery);
+            
+            if (!notificationsSnapshot.empty) {
+                foundUserId = notificationsSnapshot.docs[0].data().userId;
+                showAdminStatus(`Found user ID in notifications: ${foundUserId}`, null);
+            } else {
+                // Check help_requests collection
+                const requestsRef = collection(db, "help_requests");
+                const requestsQuery = query(requestsRef, where("userEmail", "==", userEmail), limit(1));
+                const requestsSnapshot = await getDocs(requestsQuery);
                 
-                // Create new user document with admin role
+                if (!requestsSnapshot.empty) {
+                    foundUserId = requestsSnapshot.docs[0].data().userId;
+                    showAdminStatus(`Found user ID in help requests: ${foundUserId}`, null);
+                }
+            }
+            
+            if (foundUserId) {
+                // We found the user ID, now create a user document with it
                 const newUserData = {
                     email: userEmail,
                     role: "admin",
@@ -525,36 +580,46 @@ adminCreateForm.addEventListener('submit', async (e) => {
                     isVerified: false
                 };
                 
-                // Use email as document ID (replace @ and . with safe characters)
-                // NOTE: For proper integration with the app, you should:
-                // 1. Go to Firebase console > Authentication
-                // 2. Find the user by email
-                // 3. Copy their actual UID
-                // 4. Replace the document created here with one using the actual UID
-                const safeId = userEmail.replace(/[.@]/g, '_');
-                const userRef = doc(db, "users", safeId);
-                
+                const userRef = doc(db, "users", foundUserId);
                 await setDoc(userRef, newUserData);
                 
-                // Show success message with instructions
-                showAdminStatus(`User ${userEmail} added as admin successfully! IMPORTANT: Find the user's UID in Firebase Authentication console and update this document's ID to match it.`, true);
-                
-                // Clear form
+                showAdminStatus(`User ${userEmail} was added as admin with the correct UID!`, true);
                 userEmailInput.value = '';
                 return;
-            } catch (authError) {
-                console.error("Error creating user document:", authError);
-                showAdminStatus(`No user found with email: ${userEmail}`, false);
-                return;
             }
+            
+            // If we still haven't found the user, create a temporary document
+            showAdminStatus(`Creating temporary document. User may need to sign in once more to fully enable admin privileges.`, null);
+            
+            // Create new user document with admin role
+            const newUserData = {
+                email: userEmail,
+                role: "admin",
+                name: "",
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                isVerified: false,
+                isTemporary: true  // Mark as temporary
+            };
+            
+            // Use email as document ID but in a format that won't conflict with actual UIDs
+            const safeId = `temp_${userEmail.replace(/[.@]/g, '_')}`;
+            const userRef = doc(db, "users", safeId);
+            
+            await setDoc(userRef, newUserData);
+            
+            showAdminStatus(`Temporary admin document created for ${userEmail}. Admin privileges will be enabled when they next sign in.`, true);
+            
+            // Clear form
+            userEmailInput.value = '';
+            return;
         }
         
-        // Get the first user document
+        // User document exists, check if it's already an admin
         const userDoc = querySnapshot.docs[0];
         const userId = userDoc.id;
         const userData = userDoc.data();
         
-        // Check if user is already an admin
         if (userData.role === "admin") {
             showAdminStatus(`User ${userEmail} is already an admin`, false);
             return;
@@ -567,10 +632,7 @@ adminCreateForm.addEventListener('submit', async (e) => {
             updatedAt: new Date()
         });
         
-        // Show success message
         showAdminStatus(`User ${userEmail} has been set as an admin successfully!`, true);
-        
-        // Clear form
         userEmailInput.value = '';
     } catch (error) {
         console.error("Error setting user as admin:", error);
