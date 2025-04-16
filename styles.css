@@ -468,44 +468,124 @@ footer {
 
 /* Admin Management Styles */
 .admin-management {
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: var(--shadow);
-    padding: 1.5rem;
     margin-bottom: 2rem;
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
 }
 
 .admin-management h2 {
     color: var(--primary-color);
     margin-bottom: 1rem;
-    font-size: 1.25rem;
-}
-
-.admin-management h3 {
-    font-size: 1rem;
-    margin-bottom: 1rem;
-    color: var(--secondary-color);
 }
 
 .admin-tools {
     display: flex;
+    flex-wrap: wrap;
     gap: 2rem;
 }
 
-.admin-tools form {
-    flex: 1;
-    max-width: 350px;
+#admin-create-form {
+    width: 100%;
+    max-width: 500px;
+}
+
+#admin-create-form h3 {
+    color: var(--secondary-color);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
 }
 
 .form-status {
     margin-top: 1rem;
-    min-height: 20px;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
 }
 
 .form-status.success {
+    background-color: rgba(40, 167, 69, 0.1);
+    border-left: 4px solid var(--success-color);
     color: var(--success-color);
 }
 
 .form-status.error {
+    background-color: rgba(220, 53, 69, 0.1);
+    border-left: 4px solid var(--danger-color);
     color: var(--danger-color);
+}
+
+/* Add more specific styles for long admin status messages */
+#admin-status {
+    max-width: 100%;
+    margin-top: 1rem;
+    word-wrap: break-word;
+}
+
+#admin-status strong {
+    font-weight: 600;
+    color: #d63384;
+}
+
+/* Notification Styles */
+.notification-info {
+    background-color: #f8f9fa;
+    border-left: 4px solid #17a2b8;
+    padding: 12px 15px;
+    margin: 15px 0;
+    border-radius: 4px;
+    font-size: 0.95rem;
+}
+
+.notification-info p {
+    margin: 0;
+    color: #495057;
+}
+
+.notification-info strong {
+    color: #17a2b8;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+.status-pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-accepted {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-rejected {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.notification-sent {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    font-size: 0.75rem;
+    color: #17a2b8;
+}
+
+.notification-sent::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #17a2b8;
+    margin-right: 4px;
 } 
