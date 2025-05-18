@@ -407,15 +407,58 @@ function showLoading(show) {
 
 // Init function updated to hide admin management initially
 function init() {
-    // Hide admin content and admin management initially
+    // Hide admin content initially
     adminContent.style.display = 'none';
     
-    // Ensure loading indicator is hidden initially
-    loadingIndicator.style.display = 'none';
+    // Hide the request details modal initially
+    requestDetailsModal.style.display = 'none';
+    
+    // Set the first tab as active by default
+    const defaultTab = document.getElementById('requests-tab-content');
+    if (defaultTab) {
+        defaultTab.classList.add('active');
+    }
+}
+
+// Tab switching functionality
+function setupTabNavigation() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove active class from all buttons and panes
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabPanes.forEach(pane => pane.classList.remove('active'));
+            
+            // Add active class to clicked button
+            button.classList.add('active');
+            
+            // Get the target tab content id from the button id
+            const targetId = button.id.replace('tab-', '') + '-tab-content';
+            const targetPane = document.getElementById(targetId);
+            
+            if (targetPane) {
+                targetPane.classList.add('active');
+                
+                // Load data for the active tab if needed
+                if (targetId === 'sos-tab-content') {
+                    loadSosAlerts();
+                } else if (targetId === 'requests-tab-content') {
+                    setupFirestoreListener();
+                }
+            }
+        });
+    });
 }
 
 // Start the app
 init();
+
+// Setup tab navigation after DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    setupTabNavigation();
+});
 
 // Admin create form submission
 adminCreateForm.addEventListener('submit', async (e) => {
@@ -565,15 +608,26 @@ if (sosFilterDropdown) {
     sosFilterDropdown.addEventListener('change', loadSosAlerts);
 }
 
-// Load SOS alerts when the page loads
+// Load initial data when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize other components first
     init();
     
-    // Then load SOS alerts if user is authenticated
+    // Then load data if user is authenticated
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            loadSosAlerts();
+            // Setup tab navigation
+            setupTabNavigation();
+            
+            // Only load data for the active tab initially
+            const activeTab = document.querySelector('.tab-pane.active');
+            if (activeTab) {
+                if (activeTab.id === 'sos-tab-content') {
+                    loadSosAlerts();
+                } else if (activeTab.id === 'requests-tab-content') {
+                    setupFirestoreListener();
+                }
+            }
         }
     });
 });

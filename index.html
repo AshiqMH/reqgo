@@ -42,107 +42,133 @@
 
         <!-- Admin Content (hidden initially) -->
         <div id="admin-content" class="admin-content" style="display: none;">
-            <!-- Dashboard Summary -->
-            <div class="dashboard-summary">
-                <div class="stat-card">
-                    <div class="stat-value" id="pending-count">0</div>
-                    <div class="stat-label">Pending</div>
+            <!-- Tabs Navigation -->
+            <div class="tabs-container">
+                <div class="tabs-nav">
+                    <button id="tab-requests" class="tab-btn active">Service Requests</button>
+                    <button id="tab-sos" class="tab-btn">SOS Alerts</button>
+                    <button id="tab-admin" class="tab-btn">Admin Management</button>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="accepted-count">0</div>
-                    <div class="stat-label">Accepted</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="rejected-count">0</div>
-                    <div class="stat-label">Rejected</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="total-count">0</div>
-                    <div class="stat-label">Total</div>
-                </div>
-            </div>
-            <!-- SOS Alerts Section -->
-            <div class="sos-alerts-section">
-                <h2>SOS Alerts</h2>
-                <div class="table-container">
-                    <table id="sos-alerts-table" class="data-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Device</th>
-                                <th>Latitude</th>
-                                <th>Longitude</th>
-                                <th>Status</th>
-                                <th>Time</th>
-                                <th>User ID</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="sos-alerts-body">
-                            <!-- Rows inserted by JS -->
-                        </tbody>
-                    </table>
-                    <div id="sos-no-data" class="no-data-message" style="display: none;">No SOS alerts found.</div>
-                </div>
-            </div>
-
-
-            <!-- Admin Management -->
-            <div class="admin-management">
-                <h2>Admin Management</h2>
-                <div class="admin-tools">
-                    <form id="admin-create-form">
-                        <h3>Make User an Admin</h3>
-                        <div class="form-group">
-                            <label for="admin-user-email">User Email</label>
-                            <input type="email" id="admin-user-email" class="form-control" required>
+                
+                <!-- Tab Content -->
+                <div class="tab-content">
+                    <!-- Service Requests Tab -->
+                    <div id="requests-tab-content" class="tab-pane active">
+                        <!-- Dashboard Summary -->
+                        <div class="dashboard-summary">
+                            <div class="stat-card">
+                                <div class="stat-value" id="pending-count">0</div>
+                                <div class="stat-label">Pending</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="accepted-count">0</div>
+                                <div class="stat-label">Accepted</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="rejected-count">0</div>
+                                <div class="stat-label">Rejected</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="total-count">0</div>
+                                <div class="stat-label">Total</div>
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-primary">Set as Admin</button>
-                        <div id="admin-status" class="form-status"></div>
-                    </form>
-                </div>
-            </div>
 
-            <!-- Filter Controls -->
-            <div class="filter-controls">
-                <label for="status-filter">Filter by Status:</label>
-                <select id="status-filter" class="form-control">
-                    <option value="all">All Requests</option>
-                    <option value="pending">Pending</option>
-                    <option value="accepted">Accepted</option>
-                    <option value="rejected">Rejected</option>
-                </select>
-            </div>
+                        <!-- Filter Controls -->
+                        <div class="filter-controls">
+                            <label for="status-filter">Filter by Status:</label>
+                            <select id="status-filter" class="form-control">
+                                <option value="all">All Requests</option>
+                                <option value="pending">Pending</option>
+                                <option value="accepted">Accepted</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </div>
 
-            <!-- Requests Table -->
-            <div class="table-container">
-                <table id="requests-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>User</th>
-                            <th>Item Needed</th>
-                            <th>Service Type</th>
-                            <th>Time</th>
-                            <th>Location</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="requests-table-body">
-                        <!-- Table rows will be added here dynamically -->
-                    </tbody>
-                </table>
+                        <!-- Requests Table -->
+                        <div class="table-container">
+                            <table id="requests-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Item Needed</th>
+                                        <th>Service Type</th>
+                                        <th>Time</th>
+                                        <th>Location</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="requests-table-body">
+                                    <!-- Table rows will be added here dynamically -->
+                                </tbody>
+                            </table>
 
-                <!-- Loading indicator -->
-                <div id="loading-indicator" class="loading-indicator">
-                    <div class="spinner"></div>
-                    <p>Loading data...</p>
-                </div>
+                            <!-- Loading indicator -->
+                            <div id="loading-indicator" class="loading-indicator">
+                                <div class="spinner"></div>
+                                <p>Loading data...</p>
+                            </div>
 
-                <!-- No data message -->
-                <div id="no-data-message" class="no-data-message" style="display: none;">
-                    No requests found.
+                            <!-- No data message -->
+                            <div id="no-data-message" class="no-data-message" style="display: none;">
+                                No requests found.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- SOS Alerts Tab -->
+                    <div id="sos-tab-content" class="tab-pane">
+                        <h2>Emergency SOS Alerts</h2>
+                        
+                        <!-- SOS Filter Controls -->
+                        <div class="filter-controls">
+                            <label for="sos-status-filter">Filter by Status:</label>
+                            <select id="sos-status-filter" class="form-control">
+                                <option value="all">All Alerts</option>
+                                <option value="active">Active</option>
+                                <option value="resolved">Resolved</option>
+                            </select>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table id="sos-alerts-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Device</th>
+                                        <th>Latitude</th>
+                                        <th>Longitude</th>
+                                        <th>Status</th>
+                                        <th>Time</th>
+                                        <th>User ID</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sos-alerts-body">
+                                    <!-- Rows inserted by JS -->
+                                </tbody>
+                            </table>
+                            <div id="sos-no-data" class="no-data-message" style="display: none;">No SOS alerts found.</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Admin Management Tab -->
+                    <div id="admin-tab-content" class="tab-pane">
+                        <h2>Admin Management</h2>
+                        <div class="admin-tools">
+                            <form id="admin-create-form">
+                                <h3>Make User an Admin</h3>
+                                <div class="form-group">
+                                    <label for="admin-user-email">User Email</label>
+                                    <input type="email" id="admin-user-email" class="form-control" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Set as Admin</button>
+                                <div id="admin-status" class="form-status"></div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
