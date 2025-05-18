@@ -593,3 +593,20 @@ footer {
 .tab-button.emergency.active {
     border-bottom-color: var(--danger-color);
 }
+
+/* Action Buttons Styles */
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* SOS Table Styles */
+.emergency-table .action-buttons {
+    justify-content: flex-start;
+}

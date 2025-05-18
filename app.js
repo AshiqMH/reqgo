@@ -587,13 +587,29 @@ function createSOSRow(id, sosAlert) {
     locationBadge.textContent = hasLocation ? 'Yes' : 'No';
     locationBadge.className = `status-badge status-${hasLocation ? 'accepted' : 'rejected'}`;
     
-    // Create view button
+    // Create action buttons
+    const actionDiv = document.createElement('div');
+    actionDiv.className = 'action-buttons';
+    
+    // View details button
     const viewBtn = document.createElement('button');
     viewBtn.textContent = 'View Details';
-    viewBtn.className = 'btn btn-primary';
+    viewBtn.className = 'btn btn-primary btn-sm';
     viewBtn.addEventListener('click', () => {
         showSOSDetails(id);
     });
+    actionDiv.appendChild(viewBtn);
+    
+    // Resolve button (only for active alerts)
+    if (sosAlert.status === 'active') {
+        const resolveBtn = document.createElement('button');
+        resolveBtn.textContent = 'Resolve';
+        resolveBtn.className = 'btn btn-success btn-sm';
+        resolveBtn.addEventListener('click', () => {
+            updateSOSStatus(id, 'resolved');
+        });
+        actionDiv.appendChild(resolveBtn);
+    }
     
     // Set row content
     row.innerHTML = `
@@ -612,8 +628,8 @@ function createSOSRow(id, sosAlert) {
     // Add location badge to the location cell
     row.cells[5].appendChild(locationBadge);
     
-    // Add view button to the action cell
-    row.cells[6].appendChild(viewBtn);
+    // Add action buttons to the action cell
+    row.cells[6].appendChild(actionDiv);
     
     // Highlight emergency rows
     if (sosAlert.status === 'active') {
@@ -738,17 +754,26 @@ function showSOSDetails(sosId) {
 function updateSOSStatus(sosId, status) {
     const sosRef = doc(db, "sosAlerts", sosId);
     
+    // Show loading indicator
+    sosLoadingIndicator.style.display = 'flex';
+    
     updateDoc(sosRef, {
         status: status,
         resolvedAt: new Date()
     })
         .then(() => {
             console.log(`SOS alert ${sosId} status updated to ${status}`);
+            // Close modal if it's open
             sosModal.style.display = 'none';
+            // Refresh SOS alerts list
+            setupSOSListener();
+            // Show success message
+            alert(`SOS alert marked as ${status} successfully`);
         })
         .catch((error) => {
             console.error("Error updating SOS alert status: ", error);
             alert(`Error updating status: ${error.message}`);
+            sosLoadingIndicator.style.display = 'none';
         });
 }
 
@@ -760,14 +785,21 @@ function init() {
     requestsSection.style.display = 'block';
     sosSection.style.display = 'none';
     
+    // Show Help Requests stats, hide SOS stats
+    document.getElementById('help-requests-stats').style.display = 'grid';
+    document.getElementById('sos-alerts-stats').style.display = 'none';
+    
     // Hide admin management section initially
     document.getElementById('admin-management').style.display = 'none';
     
     // Show loading indicator
     showLoading(true);
     
-    // Set up SOS listener
+    // Set up both listeners to load data
+    setupFirestoreListener();
     setupSOSListener();
+    
+    console.log('Admin panel initialized');
 }
 
 // Start the app
