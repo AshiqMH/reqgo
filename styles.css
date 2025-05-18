@@ -601,6 +601,27 @@ footer {
     flex-wrap: wrap;
 }
 
+/* SOS Table Visibility Fix */
+#sos-section {
+    position: relative;
+    z-index: 1;
+    min-height: 300px;
+}
+
+#sos-table {
+    width: 100%;
+    position: relative;
+    z-index: 2;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+#sos-table-body {
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: table-row-group !important;
+}
+
 .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.875rem;

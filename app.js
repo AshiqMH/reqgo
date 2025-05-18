@@ -201,19 +201,40 @@ requestsTab.addEventListener('click', () => {
 });
 
 sosTab.addEventListener('click', () => {
+    console.log('SOS tab clicked');
+    
     // Show SOS Alerts tab content
     requestsSection.style.display = 'none';
     sosSection.style.display = 'block';
+    
     // Show SOS Alerts stats
     document.getElementById('help-requests-stats').style.display = 'none';
     document.getElementById('sos-alerts-stats').style.display = 'grid';
+    
     // Update active tab styling
     requestsTab.classList.remove('active');
     sosTab.classList.add('active');
     
+    // Make sure the table is visible
+    const sosTable = document.getElementById('sos-table');
+    if (sosTable) {
+        sosTable.style.display = 'table';
+        console.log('SOS table display set to table');
+    }
+    
     // Force refresh SOS alerts when tab is clicked
-    console.log('SOS tab clicked, refreshing SOS alerts');
+    console.log('Refreshing SOS alerts');
     setupSOSListener();
+    
+    // Debug visibility after a short delay
+    setTimeout(() => {
+        const sosTableBody = document.getElementById('sos-table-body');
+        if (sosTableBody) {
+            console.log('SOS table body children:', sosTableBody.children.length);
+            console.log('SOS table body display:', window.getComputedStyle(sosTableBody).display);
+            console.log('SOS table body visibility:', window.getComputedStyle(sosTableBody).visibility);
+        }
+    }, 1000);
 });
 
 // Status filter change
@@ -564,12 +585,25 @@ function setupSOSListener() {
             // Populate table with SOS alerts
             console.log('Populating table with', allSOSAlerts.length, 'SOS alerts');
             
+            // Make sure the table is visible
+            sosTableBody.style.display = 'table-row-group';
+            sosTableBody.style.visibility = 'visible';
+            sosTableBody.style.opacity = '1';
+            
             // Create and append each row
             allSOSAlerts.forEach(sosAlert => {
                 try {
                     console.log('Creating row for SOS alert:', sosAlert.id);
                     const row = createSOSRow(sosAlert.id, sosAlert);
+                    
+                    // Ensure the row has proper styling
+                    row.style.display = 'table-row';
+                    row.style.visibility = 'visible';
+                    row.style.opacity = '1';
+                    
+                    // Add to table
                     sosTableBody.appendChild(row);
+                    console.log('Row appended for SOS alert:', sosAlert.id);
                 } catch (error) {
                     console.error('Error creating row for SOS alert:', sosAlert.id, error);
                 }
