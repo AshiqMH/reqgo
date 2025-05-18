@@ -16,8 +16,7 @@ import {
     updateDoc, 
     onSnapshot,
     orderBy,
-    getDoc,
-    addDoc
+    getDoc
 } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
 // Firebase configuration
@@ -44,10 +43,6 @@ const passwordInput = document.getElementById('password');
 const loginError = document.getElementById('login-error');
 const userEmail = document.getElementById('user-email');
 const logoutButton = document.getElementById('logout-btn');
-
-// Help Requests elements
-const requestsTab = document.getElementById('requests-tab');
-const requestsSection = document.getElementById('requests-section');
 const statusFilter = document.getElementById('status-filter');
 const requestsTable = document.getElementById('requests-table');
 const requestsTableBody = document.getElementById('requests-table-body');
@@ -59,42 +54,21 @@ const requestDetailsContent = document.getElementById('request-details');
 const acceptButton = document.getElementById('accept-btn');
 const rejectButton = document.getElementById('reject-btn');
 
-// SOS Alerts elements
-const sosTab = document.getElementById('sos-tab');
-const sosSection = document.getElementById('sos-section');
-const sosStatusFilter = document.getElementById('sos-status-filter')
-const sosTableBody = document.getElementById('sos-table-body');
-const sosLoadingIndicator = document.getElementById('sos-loading-indicator');
-const noSosMessage = document.getElementById('no-sos-message');
-const sosModal = document.getElementById('sos-modal');
-const closeSosModalBtn = document.getElementById('close-sos-modal');
-const sosDetailsContent = document.getElementById('sos-details');
-const resolveButton = document.getElementById('resolve-btn');
-const contactButton = document.getElementById('contact-btn');
-
-// Help Request Stats elements
+// Stats elements
 const pendingCount = document.getElementById('pending-count');
 const acceptedCount = document.getElementById('accepted-count');
 const rejectedCount = document.getElementById('rejected-count');
 const totalCount = document.getElementById('total-count');
-
-// SOS Stats elements
-const activeSOSCount = document.getElementById('active-sos-count');
-const resolvedSOSCount = document.getElementById('resolved-sos-count');
-const totalSOSCount = document.getElementById('total-sos-count');
 
 // Add DOM elements for admin management
 const adminCreateForm = document.getElementById('admin-create-form');
 const userEmailInput = document.getElementById('admin-user-email');
 const adminStatus = document.getElementById('admin-status');
 
-// Current items being viewed
+// Current request being viewed
 let currentRequestId = null;
-let currentSOSId = null;
 let allRequests = [];
-let allSOSAlerts = [];
 let unsubscribe = null;
-let sosUnsubscribe = null;
 
 // Authentication state observer
 onAuthStateChanged(auth, (user) => {
@@ -104,23 +78,18 @@ onAuthStateChanged(auth, (user) => {
         adminContent.style.display = 'block';
         userEmail.textContent = user.email;
         
-        // Set up Firestore listeners
+        // Set up Firestore listener based on current filter
         setupFirestoreListener();
-        setupSOSListener(); // Also set up SOS listener on login
     } else {
         // User is signed out
         loginContainer.style.display = 'block';
         adminContent.style.display = 'none';
         userEmail.textContent = '';
         
-        // Clear any existing listeners
+        // Clear any existing listener
         if (unsubscribe) {
             unsubscribe();
             unsubscribe = null;
-        }
-        if (sosUnsubscribe) {
-            sosUnsubscribe();
-            sosUnsubscribe = null;
         }
     }
 });
@@ -187,83 +156,20 @@ logoutButton.addEventListener('click', () => {
         });
 });
 
-// Tab navigation
-requestsTab.addEventListener('click', () => {
-    // Show Help Requests tab content
-    requestsSection.style.display = 'block';
-    sosSection.style.display = 'none';
-    // Show Help Requests stats
-    document.getElementById('help-requests-stats').style.display = 'grid';
-    document.getElementById('sos-alerts-stats').style.display = 'none';
-    // Update active tab styling
-    requestsTab.classList.add('active');
-    sosTab.classList.remove('active');
-});
-
-sosTab.addEventListener('click', () => {
-    console.log('SOS tab clicked');
-    
-    // Show SOS Alerts tab content
-    requestsSection.style.display = 'none';
-    sosSection.style.display = 'block';
-    
-    // Show SOS Alerts stats
-    document.getElementById('help-requests-stats').style.display = 'none';
-    document.getElementById('sos-alerts-stats').style.display = 'grid';
-    
-    // Update active tab styling
-    requestsTab.classList.remove('active');
-    sosTab.classList.add('active');
-    
-    // Make sure the table is visible
-    const sosTable = document.getElementById('sos-table');
-    if (sosTable) {
-        sosTable.style.display = 'table';
-        console.log('SOS table display set to table');
-    }
-    
-    // Force refresh SOS alerts when tab is clicked
-    console.log('Refreshing SOS alerts');
-    setupSOSListener();
-    
-    // Debug visibility after a short delay
-    setTimeout(() => {
-        const sosTableBody = document.getElementById('sos-table-body');
-        if (sosTableBody) {
-            console.log('SOS table body children:', sosTableBody.children.length);
-            console.log('SOS table body display:', window.getComputedStyle(sosTableBody).display);
-            console.log('SOS table body visibility:', window.getComputedStyle(sosTableBody).visibility);
-        }
-    }, 1000);
-});
-
 // Status filter change
 statusFilter.addEventListener('change', () => {
     setupFirestoreListener();
 });
 
-// SOS status filter change
-sosStatusFilter.addEventListener('change', () => {
-    setupSOSListener();
-});
-
-// Close the request modal when clicking the close button
+// Close the modal when clicking the close button
 closeModalBtn.addEventListener('click', () => {
     requestDetailsModal.style.display = 'none';
 });
 
-// Close the SOS modal when clicking the close button
-closeSosModalBtn.addEventListener('click', () => {
-    sosModal.style.display = 'none';
-});
-
-// Close the modals when clicking outside of them
+// Close the modal when clicking outside of it
 window.addEventListener('click', (e) => {
     if (e.target === requestDetailsModal) {
         requestDetailsModal.style.display = 'none';
-    }
-    if (e.target === sosModal) {
-        sosModal.style.display = 'none';
     }
 });
 
@@ -474,7 +380,7 @@ async function updateRequestStatus(requestId, status) {
     }
 }
 
-// Update help request statistics
+// Update statistics
 function updateStatistics() {
     // Count requests by status from allRequests array
     const pendingRequests = allRequests.filter(req => req.status === 'pending').length;
@@ -489,21 +395,6 @@ function updateStatistics() {
     totalCount.textContent = totalRequests;
 }
 
-// Update SOS alerts statistics
-function updateSOSStatistics() {
-    // Count SOS alerts by status from allSOSAlerts array
-    const activeSOS = allSOSAlerts.filter(alert => alert.status === 'active').length;
-    const resolvedSOS = allSOSAlerts.filter(alert => alert.status === 'resolved').length;
-    const totalSOS = allSOSAlerts.length;
-    
-    // Update UI
-    if (activeSOSCount) activeSOSCount.textContent = activeSOS;
-    if (resolvedSOSCount) resolvedSOSCount.textContent = resolvedSOS;
-    if (totalSOSCount) totalSOSCount.textContent = totalSOS;
-    
-    console.log('SOS Statistics updated:', { active: activeSOS, resolved: resolvedSOS, total: totalSOS });
-}
-
 // Show/hide loading indicator
 function showLoading(show) {
     if (show) {
@@ -514,378 +405,19 @@ function showLoading(show) {
     }
 }
 
-// Set up SOS alerts listener
-function setupSOSListener() {
-    console.log('Setting up SOS alerts listener');
-    
-    // Clear any existing SOS listener
-    if (sosUnsubscribe) {
-        sosUnsubscribe();
-        sosUnsubscribe = null;
-    }
-    
-    // Get direct references to DOM elements
-    const sosLoadingIndicator = document.getElementById('sos-loading-indicator');
-    const sosTableBody = document.getElementById('sos-table-body');
-    const noSosMessage = document.getElementById('no-sos-message');
-    
-    // Show loading indicator and clear table
-    sosLoadingIndicator.style.display = 'flex';
-    sosTableBody.innerHTML = '';
-    noSosMessage.style.display = 'none';
-    
-    // Query the sosAlerts collection directly
-    const sosRef = collection(db, "sosAlerts");
-    
-    // Set up the snapshot listener on the collection
-    sosUnsubscribe = onSnapshot(sosRef, (snapshot) => {
-        console.log('SOS alerts snapshot received:', snapshot.size, 'documents');
-        sosLoadingIndicator.style.display = 'none';
-        
-        let activeCount = 0;
-        let resolvedCount = 0;
-        
-        // Clear existing table rows
-        sosTableBody.innerHTML = '';
-        
-        // Store all SOS alerts in the allSOSAlerts array for other functions to use
-        allSOSAlerts = [];
-        
-        if (snapshot.empty) {
-            console.log('No SOS alerts found');
-            noSosMessage.style.display = 'block';
-        } else {
-            noSosMessage.style.display = 'none';
-            
-            // Populate table with SOS alerts
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                allSOSAlerts.push({
-                    id: doc.id,
-                    ...data
-                });
-                
-                // Update stats
-                if (data.status === "active") activeCount++;
-                else if (data.status === "resolved") resolvedCount++;
-                
-                // Format timestamp
-                let formattedTime = 'N/A';
-                if (data.timestamp) {
-                    if (data.timestamp.toDate) {
-                        formattedTime = new Date(data.timestamp.toDate()).toLocaleString();
-                    } else if (data.timestamp.seconds) {
-                        formattedTime = new Date(data.timestamp.seconds * 1000).toLocaleString();
-                    } else {
-                        formattedTime = data.timestamp.toString();
-                    }
-                }
-                
-                // ✅ Render each row
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${doc.id.substring(0, 8)}...</td>
-                    <td>${data.userId || "—"}</td>
-                    <td>${formattedTime}</td>
-                    <td>${data.latitude || "—"}, ${data.longitude || "—"}</td>
-                    <td><span class="status-badge status-${data.status || 'active'}">${data.status || "active"}</span></td>
-                    <td><span class="status-badge status-${data.latitude && data.longitude ? 'accepted' : 'rejected'}">${data.latitude && data.longitude ? 'Yes' : 'No'}</span></td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn btn-primary btn-sm view-sos" data-id="${doc.id}">View</button>
-                            ${data.status === 'active' ? `<button class="btn btn-success btn-sm resolve-sos" data-id="${doc.id}">Resolve</button>` : ''}
-                        </div>
-                    </td>
-                `;
-                
-                // Add event listeners to buttons
-                const viewBtn = row.querySelector('.view-sos');
-                if (viewBtn) viewBtn.addEventListener('click', () => showSOSDetails(doc.id));
-                
-                const resolveBtn = row.querySelector('.resolve-sos');
-                if (resolveBtn) resolveBtn.addEventListener('click', () => updateSOSStatus(doc.id, 'resolved'));
-                
-                console.log("Appending SOS row:", data);
-                sosTableBody.appendChild(row);
-            });
-            
-            console.log('SOS table populated with', sosTableBody.children.length, 'rows');
-        }
-        
-        // Update statistics with the counts we gathered
-        document.getElementById('sos-active-count').textContent = activeCount;
-        document.getElementById('sos-resolved-count').textContent = resolvedCount;
-        document.getElementById('sos-total-count').textContent = activeCount + resolvedCount;
-    }, error => {
-        console.error('Error getting SOS alerts:', error);
-        sosLoadingIndicator.style.display = 'none';
-        noSosMessage.style.display = 'block';
-        noSosMessage.textContent = `Error loading data: ${error.message}`;
-    });
-}
-
-// Show SOS alert details in modal
-function showSOSDetails(sosId) {
-    currentSOSId = sosId;
-    
-    // Find the SOS alert in the array
-    const sosAlert = allSOSAlerts.find(alert => alert.id === sosId);
-    
-    if (!sosAlert) {
-        console.error(`SOS alert with ID ${sosId} not found`);
-        return;
-    }
-    
-    console.log('Showing SOS details for:', sosId, sosAlert);
-    
-    // Format timestamp
-    let timestamp = 'N/A';
-    if (sosAlert.timestamp) {
-        if (sosAlert.timestamp.toDate) {
-            timestamp = new Date(sosAlert.timestamp.toDate()).toLocaleString();
-        } else if (sosAlert.timestamp.seconds) {
-            timestamp = new Date(sosAlert.timestamp.seconds * 1000).toLocaleString();
-        } else if (typeof sosAlert.timestamp === 'string') {
-            timestamp = sosAlert.timestamp; // Use the string timestamp directly
-        } else {
-            timestamp = new Date(sosAlert.timestamp).toLocaleString();
-        }
-    }
-    
-    // Build details HTML
-    let detailsHTML = `
-        <div class="detail-item">
-            <strong>Alert ID:</strong> ${sosId}
-        </div>
-        <div class="detail-item">
-            <strong>User:</strong> ${sosAlert.userName || sosAlert.userId || 'Unknown'}
-        </div>
-        <div class="detail-item">
-            <strong>User ID:</strong> ${sosAlert.userId || 'Unknown'}
-        </div>
-        <div class="detail-item">
-            <strong>Time:</strong> ${timestamp}
-        </div>
-        <div class="detail-item">
-            <strong>Status:</strong> ${sosAlert.status || 'active'}
-        </div>
-        <div class="detail-item">
-            <strong>Device Info:</strong> ${sosAlert.deviceInfo || 'Not available'}
-        </div>
-        <div class="detail-item">
-            <strong>Type:</strong> ${sosAlert.type || 'Standard SOS'}
-        </div>
-    `;
-    
-    // Add location information if available
-    const hasLocation = sosAlert.hasLocation === true || (sosAlert.latitude && sosAlert.longitude);
-    if (hasLocation) {
-        detailsHTML += `
-            <div class="detail-item">
-                <strong>Location:</strong> ${sosAlert.address || 'Address not available'}
-            </div>
-            <div class="detail-item">
-                <strong>Coordinates:</strong> ${sosAlert.latitude || 'N/A'}, ${sosAlert.longitude || 'N/A'}
-            </div>
-            <div class="detail-item map-container">
-                <strong>Map:</strong><br>
-                <a href="https://www.google.com/maps?q=${sosAlert.latitude},${sosAlert.longitude}" target="_blank" class="btn btn-sm btn-info">Open in Google Maps</a>
-            </div>
-        `;
-    } else {
-        detailsHTML += `
-            <div class="detail-item">
-                <strong>Location:</strong> Location data not available
-            </div>
-        `;
-    }
-    
-    // Add notes if available
-    if (sosAlert.notes) {
-        detailsHTML += `
-            <div class="detail-item">
-                <strong>Notes:</strong> ${sosAlert.notes}
-            </div>
-        `;
-    }
-    
-    // Set the details content
-    sosDetailsContent.innerHTML = detailsHTML;
-    
-    // Show/hide buttons based on status
-    if (sosAlert.status === 'active') {
-        resolveButton.style.display = 'block';
-    } else {
-        resolveButton.style.display = 'none';
-    }
-    
-    // Set up resolve button event listener
-    resolveButton.onclick = () => {
-        updateSOSStatus(sosId, 'resolved');
-    };
-    
-    // Set up contact button event listener
-    contactButton.onclick = () => {
-        // Implement contact functionality (e.g., show contact options)
-        alert(`Contact information for ${sosAlert.userName || 'user'}: ${sosAlert.userPhone || 'Phone not available'}`);
-    };
-    
-    // Display the modal
-    sosModal.style.display = 'block';
-}
-
-// Update SOS alert status
-function updateSOSStatus(sosId, status) {
-    const sosRef = doc(db, "sosAlerts", sosId);
-    
-    // Show loading indicator
-    sosLoadingIndicator.style.display = 'flex';
-    
-    updateDoc(sosRef, {
-        status: status,
-        resolvedAt: new Date()
-    })
-        .then(() => {
-            console.log(`SOS alert ${sosId} status updated to ${status}`);
-            // Close modal if it's open
-            sosModal.style.display = 'none';
-            // Refresh SOS alerts list
-            setupSOSListener();
-            // Show success message
-            alert(`SOS alert marked as ${status} successfully`);
-        })
-        .catch((error) => {
-            console.error("Error updating SOS alert status: ", error);
-            alert(`Error updating status: ${error.message}`);
-            sosLoadingIndicator.style.display = 'none';
-        });
-}
-
 // Init function updated to hide admin management initially
 function init() {
-    console.log('Initializing admin panel...');
+    // Hide admin content and admin management initially
+    adminContent.style.display = 'none';
     
-    // Set default tab to requests
-    requestsTab.classList.add('active');
-    sosTab.classList.remove('active');
-    requestsSection.style.display = 'block';
-    sosSection.style.display = 'none';
-    
-    // Show Help Requests stats, hide SOS stats
-    document.getElementById('help-requests-stats').style.display = 'grid';
-    document.getElementById('sos-alerts-stats').style.display = 'none';
-    
-    // Hide admin management section initially
-    document.getElementById('admin-management').style.display = 'none';
-    
-    // Show loading indicator
-    showLoading(true);
-    
-    // Set up both listeners immediately
-    setupFirestoreListener(); // Load help requests
-    setupSOSListener();      // Load SOS alerts
-    
-    console.log('Admin panel initialized - Both help requests and SOS alerts loading');
+    // Ensure loading indicator is hidden initially
+    loadingIndicator.style.display = 'none';
 }
 
 // Start the app
 init();
 
-// Force load SOS alerts data immediately after initialization and add test data if needed
-setTimeout(async () => {
-    console.log('Checking for SOS alerts...');
-    const hasAlerts = await checkSOSAlertsExist();
-    
-    if (!hasAlerts) {
-        console.log('No SOS alerts found, adding a test alert...');
-        await addTestSOSAlert();
-        // Reload SOS alerts after adding test data
-        setupSOSListener();
-    } else {
-        console.log('SOS alerts exist, loading them...');
-    }
-    
-    // Debug SOS alerts display after a short delay
-    setTimeout(debugSOSDisplay, 3000);
-}, 2000);
-
-// Check if any SOS alerts exist
-async function checkSOSAlertsExist() {
-    try {
-        const snapshot = await getDocs(collection(db, "sosAlerts"));
-        console.log('SOS alerts check:', snapshot.size, 'documents found');
-        return !snapshot.empty;
-    } catch (error) {
-        console.error('Error checking SOS alerts:', error);
-        return false;
-    }
-}
-
-// Add a test SOS alert
-async function addTestSOSAlert() {
-    try {
-        // Create a timestamp that matches Firestore format
-        const now = new Date();
-        const timestamp = {
-            seconds: Math.floor(now.getTime() / 1000),
-            nanoseconds: 0
-        };
-        
-        const testAlert = {
-            userId: "47p0m1EZ5fgzrY4ziMxoBaQvfZ", // Match format from screenshot
-            deviceInfo: "V2055",
-            timestamp: timestamp,
-            latitude: 13.269782,
-            longitude: 74.7627832,
-            status: "active",
-            hasLocation: true,
-            type: "sos" // Match the type field from screenshot
-        };
-        
-        const docRef = await addDoc(collection(db, "sosAlerts"), testAlert);
-        console.log('Test SOS alert added with ID:', docRef.id);
-        return docRef.id;
-    } catch (error) {
-        console.error('Error adding test SOS alert:', error);
-        return null;
-    }
-}
-
-// Debug function to help identify issues with SOS alerts display
-function debugSOSDisplay() {
-    console.log('Debugging SOS alerts display');
-    
-    // Check if SOS table body exists
-    const sosTableBody = document.getElementById('sos-table-body');
-    if (!sosTableBody) {
-        console.error('SOS table body element not found!');
-        return;
-    }
-    
-    // Check if SOS alerts are loaded
-    console.log('Current SOS alerts:', allSOSAlerts.length);
-    console.log('SOS table rows:', sosTableBody.children.length);
-    
-    // If alerts exist but table is empty, try to populate it again
-    if (allSOSAlerts.length > 0 && sosTableBody.children.length === 0) {
-        console.log('SOS alerts exist but table is empty, repopulating...');
-        
-        // Clear table first
-        sosTableBody.innerHTML = '';
-        
-        // Repopulate table
-        allSOSAlerts.forEach(sosAlert => {
-            try {
-                const row = createSOSRow(sosAlert.id, sosAlert);
-                sosTableBody.appendChild(row);
-            } catch (error) {
-                console.error('Error creating row for SOS alert:', sosAlert.id, error);
-            }
-        });
-        
-        console.log('SOS table repopulated with', sosTableBody.children.length, 'rows');
-    }
-}
+// Admin create form submission
 adminCreateForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -951,4 +483,97 @@ function showAdminStatus(message, isSuccess) {
     } else if (isSuccess === false) {
         adminStatus.classList.add('error');
     }
-} 
+}
+
+// ==================== SOS Alerts Feature ====================
+
+// Load and render SOS alerts
+function loadSosAlerts() {
+    const sosTableBody = document.getElementById('sos-alerts-body');
+    const noData = document.getElementById('sos-no-data');
+    const filter = document.getElementById('sos-status-filter')?.value || 'all';
+
+    sosTableBody.innerHTML = '';
+    noData.style.display = 'none';
+
+    let sosRef = collection(db, "sosAlerts");
+    let q = query(sosRef, orderBy("timestamp", "desc"));
+
+    if (filter !== 'all') {
+        q = query(sosRef, where("status", "==", filter), orderBy("timestamp", "desc"));
+    }
+
+    getDocs(q)
+        .then(snapshot => {
+            if (snapshot.empty) {
+                noData.style.display = 'block';
+                return;
+            }
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const row = document.createElement('tr');
+
+                const timestamp = data.timestamp?.seconds
+                    ? new Date(data.timestamp.seconds * 1000).toLocaleString()
+                    : 'N/A';
+
+                row.innerHTML = `
+                    <td>${doc.id.slice(0, 8)}...</td>
+                    <td>${data.deviceInfo || 'Unknown'}</td>
+                    <td>${data.latitude}</td>
+                    <td>${data.longitude}</td>
+                    <td>${data.status}</td>
+                    <td>${timestamp}</td>
+                    <td>${data.userId || 'N/A'}</td>
+                    <td>
+                        ${data.status === 'active'
+                            ? `<button class="btn btn-success" onclick="markSosResolved('${doc.id}')">Mark Resolved</button>`
+                            : ''}
+                    </td>
+                `;
+
+                sosTableBody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error("Error loading SOS alerts:", error);
+            noData.textContent = "Failed to load SOS alerts.";
+            noData.style.display = 'block';
+        });
+}
+
+// Update SOS status to resolved
+window.markSosResolved = async function (id) {
+    try {
+        const sosRef = doc(db, "sosAlerts", id);
+        await updateDoc(sosRef, {
+            status: "resolved",
+            updatedAt: new Date()
+        });
+        alert("SOS marked as resolved.");
+        loadSosAlerts(); // Refresh
+    } catch (err) {
+        console.error("Error updating SOS alert:", err);
+        alert("Failed to mark as resolved.");
+    }
+}
+
+// Listen for status filter changes
+const sosFilterDropdown = document.getElementById('sos-status-filter');
+if (sosFilterDropdown) {
+    sosFilterDropdown.addEventListener('change', loadSosAlerts);
+}
+
+// Load SOS alerts when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize other components first
+    init();
+    
+    // Then load SOS alerts if user is authenticated
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            loadSosAlerts();
+        }
+    });
+});
