@@ -210,7 +210,9 @@ sosTab.addEventListener('click', () => {
     // Update active tab styling
     requestsTab.classList.remove('active');
     sosTab.classList.add('active');
-    // Refresh SOS data
+    
+    // Force refresh SOS alerts when tab is clicked
+    console.log('SOS tab clicked, refreshing SOS alerts');
     setupSOSListener();
 });
 
@@ -493,12 +495,25 @@ function showLoading(show) {
 
 // Set up SOS alerts listener
 function setupSOSListener() {
+    console.log('Setting up SOS alerts listener');
+    
     // Clear any existing SOS listener
     if (sosUnsubscribe) {
         sosUnsubscribe();
         sosUnsubscribe = null;
     }
     
+    // Get direct references to DOM elements
+    const sosLoadingIndicator = document.getElementById('sos-loading-indicator');
+    const sosTableBody = document.getElementById('sos-table-body');
+    const noSosMessage = document.getElementById('no-sos-message');
+    
+    if (!sosTableBody) {
+        console.error('SOS table body element not found!');
+        return;
+    }
+    
+    // Show loading indicator and clear table
     sosLoadingIndicator.style.display = 'flex';
     sosTableBody.innerHTML = '';
     noSosMessage.style.display = 'none';
@@ -517,7 +532,6 @@ function setupSOSListener() {
     console.log('Querying Firestore for SOS alerts');
     
     sosUnsubscribe = onSnapshot(q, (querySnapshot) => {
-        sosLoadingIndicator.style.display = 'none';
         console.log('SOS alerts snapshot received:', querySnapshot.size, 'documents');
         
         // Store all SOS alerts in the allSOSAlerts array
@@ -532,22 +546,36 @@ function setupSOSListener() {
             };
         });
         
+        // Update statistics based on the new data
+        updateSOSStatistics();
+        
+        // Hide loading indicator
+        sosLoadingIndicator.style.display = 'none';
+        
+        // Clear existing table rows
+        sosTableBody.innerHTML = '';
+        
         if (querySnapshot.empty) {
             console.log('No SOS alerts found');
             noSosMessage.style.display = 'block';
-            sosTableBody.innerHTML = '';
         } else {
             noSosMessage.style.display = 'none';
             
-            // Clear existing table rows
-            sosTableBody.innerHTML = '';
-            
             // Populate table with SOS alerts
+            console.log('Populating table with', allSOSAlerts.length, 'SOS alerts');
+            
+            // Create and append each row
             allSOSAlerts.forEach(sosAlert => {
-                console.log('Creating row for SOS alert:', sosAlert.id);
-                const row = createSOSRow(sosAlert.id, sosAlert);
-                sosTableBody.appendChild(row);
+                try {
+                    console.log('Creating row for SOS alert:', sosAlert.id);
+                    const row = createSOSRow(sosAlert.id, sosAlert);
+                    sosTableBody.appendChild(row);
+                } catch (error) {
+                    console.error('Error creating row for SOS alert:', sosAlert.id, error);
+                }
             });
+            
+            console.log('SOS table populated with', sosTableBody.children.length, 'rows');
         }
         
         // Update SOS statistics
@@ -563,6 +591,8 @@ function setupSOSListener() {
 // Create a table row for an SOS alert
 function createSOSRow(id, sosAlert) {
     console.log('Creating SOS row with data:', sosAlert);
+    
+    // Create row element
     const row = document.createElement('tr');
     
     // Format timestamp
@@ -581,7 +611,28 @@ function createSOSRow(id, sosAlert) {
     
     // Get user information
     const userId = sosAlert.userId || 'Unknown';
-    const userName = sosAlert.userName || 'Unknown User';
+    const userName = sosAlert.userName || userId;
+    
+    // Create location text based on coordinates
+    let locationText = 'Location not available';
+    if (sosAlert.latitude && sosAlert.longitude) {
+        locationText = `Lat: ${sosAlert.latitude}, Lng: ${sosAlert.longitude}`;
+    }
+    
+    // Create cells first
+    const idCell = document.createElement('td');
+    const userCell = document.createElement('td');
+    const timeCell = document.createElement('td');
+    const locationCell = document.createElement('td');
+    const statusCell = document.createElement('td');
+    const hasLocationCell = document.createElement('td');
+    const actionCell = document.createElement('td');
+    
+    // Set cell content
+    idCell.textContent = id.substring(0, 8) + '...';
+    userCell.textContent = userName;
+    timeCell.textContent = timestamp;
+    locationCell.textContent = locationText;
     
     // Create status badge
     const statusBadge = document.createElement('span');
@@ -590,12 +641,14 @@ function createSOSRow(id, sosAlert) {
     if (sosAlert.status === 'active') {
         statusBadge.classList.add('emergency');
     }
+    statusCell.appendChild(statusBadge);
     
     // Create location status badge
     const locationBadge = document.createElement('span');
     const hasLocation = sosAlert.hasLocation === true || (sosAlert.latitude && sosAlert.longitude);
     locationBadge.textContent = hasLocation ? 'Yes' : 'No';
     locationBadge.className = `status-badge status-${hasLocation ? 'accepted' : 'rejected'}`;
+    hasLocationCell.appendChild(locationBadge);
     
     // Create action buttons
     const actionDiv = document.createElement('div');
@@ -620,32 +673,16 @@ function createSOSRow(id, sosAlert) {
         });
         actionDiv.appendChild(resolveBtn);
     }
+    actionCell.appendChild(actionDiv);
     
-    // Create location text based on coordinates
-    let locationText = 'Location not available';
-    if (sosAlert.latitude && sosAlert.longitude) {
-        locationText = `Lat: ${sosAlert.latitude}, Lng: ${sosAlert.longitude}`;
-    }
-    
-    // Set row content
-    row.innerHTML = `
-        <td>${id.substring(0, 8)}...</td>
-        <td>${userName || sosAlert.userId || 'Unknown'}</td>
-        <td>${timestamp}</td>
-        <td>${locationText}</td>
-        <td></td>
-        <td></td>
-        <td></td>
-    `;
-    
-    // Add status badge to the status cell
-    row.cells[4].appendChild(statusBadge);
-    
-    // Add location badge to the location cell
-    row.cells[5].appendChild(locationBadge);
-    
-    // Add action buttons to the action cell
-    row.cells[6].appendChild(actionDiv);
+    // Append all cells to the row
+    row.appendChild(idCell);
+    row.appendChild(userCell);
+    row.appendChild(timeCell);
+    row.appendChild(locationCell);
+    row.appendChild(statusCell);
+    row.appendChild(hasLocationCell);
+    row.appendChild(actionCell);
     
     // Highlight emergency rows
     if (sosAlert.status === 'active') {
@@ -828,6 +865,51 @@ function init() {
 
 // Start the app
 init();
+
+// Force load SOS alerts data immediately after initialization
+setTimeout(() => {
+    console.log('Forcing initial load of SOS alerts');
+    setupSOSListener();
+    
+    // Debug SOS alerts display
+    setTimeout(debugSOSDisplay, 3000);
+}, 2000);
+
+// Debug function to help identify issues with SOS alerts display
+function debugSOSDisplay() {
+    console.log('Debugging SOS alerts display');
+    
+    // Check if SOS table body exists
+    const sosTableBody = document.getElementById('sos-table-body');
+    if (!sosTableBody) {
+        console.error('SOS table body element not found!');
+        return;
+    }
+    
+    // Check if SOS alerts are loaded
+    console.log('Current SOS alerts:', allSOSAlerts.length);
+    console.log('SOS table rows:', sosTableBody.children.length);
+    
+    // If alerts exist but table is empty, try to populate it again
+    if (allSOSAlerts.length > 0 && sosTableBody.children.length === 0) {
+        console.log('SOS alerts exist but table is empty, repopulating...');
+        
+        // Clear table first
+        sosTableBody.innerHTML = '';
+        
+        // Repopulate table
+        allSOSAlerts.forEach(sosAlert => {
+            try {
+                const row = createSOSRow(sosAlert.id, sosAlert);
+                sosTableBody.appendChild(row);
+            } catch (error) {
+                console.error('Error creating row for SOS alert:', sosAlert.id, error);
+            }
+        });
+        
+        console.log('SOS table repopulated with', sosTableBody.children.length, 'rows');
+    }
+}
 adminCreateForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
