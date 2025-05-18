@@ -173,19 +173,28 @@ main {
 .tabs-nav {
     display: flex;
     border-bottom: 2px solid var(--border-color);
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 0.5rem;
 }
 
 .tab-btn {
     background: none;
     border: none;
-    padding: 1rem 1.5rem;
-    font-size: 1rem;
+    padding: 1.2rem 2rem;
+    margin-right: 0.5rem;
+    font-size: 1.1rem;
     font-weight: 500;
     color: var(--secondary-color);
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
+    border-radius: 8px 8px 0 0;
+}
+
+.tab-btn i {
+    margin-right: 0.75rem;
+    font-size: 1.2rem;
+    vertical-align: middle;
 }
 
 .tab-btn:hover {
@@ -207,7 +216,7 @@ main {
 }
 
 .tab-content {
-    padding: 1rem 0;
+    padding: 1.5rem 0;
 }
 
 .tab-pane {
@@ -217,6 +226,15 @@ main {
 .tab-pane.active {
     display: block;
     animation: fadeIn 0.5s ease;
+    padding: 0.5rem;
+}
+
+.tab-pane h2 {
+    margin-bottom: 1.5rem;
+    color: var(--primary-color);
+    font-size: 1.8rem;
+    padding-left: 0.5rem;
+    border-left: 4px solid var(--primary-color);
 }
 
 @keyframes fadeIn {
@@ -295,16 +313,22 @@ main {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1.5rem;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
+    padding: 0.5rem;
 }
 
 .stat-card {
     background-color: white;
-    border-radius: 8px;
+    border-radius: 12px;
     box-shadow: var(--shadow);
-    padding: 1.5rem;
+    padding: 2rem 1.5rem;
     text-align: center;
-    border-top: 3px solid var(--primary-color);
+    border-top: 4px solid var(--primary-color);
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
 }
 
 .stat-card:nth-child(1) {
@@ -338,8 +362,11 @@ main {
     display: flex;
     align-items: center;
     margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
+    padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--border-color);
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .filter-controls label {
@@ -408,18 +435,70 @@ main {
     color: var(--danger-color);
     font-weight: 700;
     background-color: rgba(234, 67, 53, 0.1);
-    padding: 0.25rem 0.5rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 4px;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+}
+
+.data-table .status-active::before {
+    content: '\f071';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-right: 0.5rem;
 }
 
 .data-table .status-resolved {
     color: var(--success-color);
     font-weight: 500;
     background-color: rgba(52, 168, 83, 0.1);
-    padding: 0.25rem 0.5rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 4px;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+}
+
+.data-table .status-resolved::before {
+    content: '\f058';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-right: 0.5rem;
+}
+
+.data-table .status-pending {
+    display: inline-flex;
+    align-items: center;
+}
+
+.data-table .status-pending::before {
+    content: '\f017';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-right: 0.5rem;
+}
+
+.data-table .status-accepted {
+    display: inline-flex;
+    align-items: center;
+}
+
+.data-table .status-accepted::before {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-right: 0.5rem;
+}
+
+.data-table .status-rejected {
+    display: inline-flex;
+    align-items: center;
+}
+
+.data-table .status-rejected::before {
+    content: '\f00d';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-right: 0.5rem;
 }
 
 /* Loading Indicator Styles */

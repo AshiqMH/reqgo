@@ -5,7 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ResQGo Admin Panel</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="favicon/logo.png">
+    <link rel="apple-touch-icon" href="favicon/logo.png">
+    <link rel="shortcut icon" type="image/png" href="favicon/logo.png">
+    <!-- Stylesheets -->
     <link rel="stylesheet" href="styles.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Firebase SDK is now imported directly in app.js using ES modules -->
 </head>
 
@@ -45,9 +52,15 @@
             <!-- Tabs Navigation -->
             <div class="tabs-container">
                 <div class="tabs-nav">
-                    <button id="tab-requests" class="tab-btn active">Service Requests</button>
-                    <button id="tab-sos" class="tab-btn">SOS Alerts</button>
-                    <button id="tab-admin" class="tab-btn">Admin Management</button>
+                    <button id="tab-requests" class="tab-btn active">
+                        <i class="fas fa-clipboard-list"></i> Service Requests
+                    </button>
+                    <button id="tab-sos" class="tab-btn">
+                        <i class="fas fa-exclamation-triangle"></i> SOS Alerts
+                    </button>
+                    <button id="tab-admin" class="tab-btn">
+                        <i class="fas fa-user-shield"></i> Admin Management
+                    </button>
                 </div>
                 
                 <!-- Tab Content -->
@@ -90,14 +103,14 @@
                             <table id="requests-table" class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
-                                        <th>User</th>
-                                        <th>Item Needed</th>
-                                        <th>Service Type</th>
-                                        <th>Time</th>
-                                        <th>Location</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
+                                        <th><i class="fas fa-hashtag"></i> ID</th>
+                                        <th><i class="fas fa-user"></i> User</th>
+                                        <th><i class="fas fa-box"></i> Item Needed</th>
+                                        <th><i class="fas fa-ambulance"></i> Service Type</th>
+                                        <th><i class="fas fa-clock"></i> Time</th>
+                                        <th><i class="fas fa-map-marker-alt"></i> Location</th>
+                                        <th><i class="fas fa-info-circle"></i> Status</th>
+                                        <th><i class="fas fa-tools"></i> Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="requests-table-body">
@@ -152,14 +165,14 @@
                             <table id="sos-alerts-table" class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
-                                        <th>Device</th>
-                                        <th>Latitude</th>
-                                        <th>Longitude</th>
-                                        <th>Status</th>
-                                        <th>Time</th>
-                                        <th>User ID</th>
-                                        <th>Action</th>
+                                        <th><i class="fas fa-hashtag"></i> ID</th>
+                                        <th><i class="fas fa-mobile-alt"></i> Device</th>
+                                        <th><i class="fas fa-map-marker-alt"></i> Latitude</th>
+                                        <th><i class="fas fa-map-marker-alt"></i> Longitude</th>
+                                        <th><i class="fas fa-info-circle"></i> Status</th>
+                                        <th><i class="fas fa-clock"></i> Time</th>
+                                        <th><i class="fas fa-user"></i> User ID</th>
+                                        <th><i class="fas fa-tools"></i> Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="sos-alerts-body">
@@ -211,8 +224,12 @@
                         <!-- Details will be added here dynamically -->
                     </div>
                     <div class="request-actions">
-                        <button id="accept-btn" class="btn btn-success">Accept Request</button>
-                        <button id="reject-btn" class="btn btn-danger">Reject Request</button>
+                        <button id="accept-btn" class="btn btn-success">
+                            <i class="fas fa-check-circle"></i> Accept Request
+                        </button>
+                        <button id="reject-btn" class="btn btn-danger">
+                            <i class="fas fa-times-circle"></i> Reject Request
+                        </button>
                     </div>
                 </div>
             </div>

@@ -254,8 +254,9 @@ function createRequestRow(id, request) {
     
     // Create view button
     const viewBtn = document.createElement('button');
-    viewBtn.textContent = 'View Details';
+    viewBtn.innerHTML = '<i class="fas fa-eye"></i> View Details';
     viewBtn.className = 'btn btn-primary';
+    viewBtn.style.marginRight = '5px';
     viewBtn.addEventListener('click', () => showRequestDetails(id));
     
     // Build the row
@@ -576,10 +577,20 @@ function loadSosAlerts() {
                 const actionCell = document.createElement('td');
                 if (data.status === 'active') {
                     const resolveBtn = document.createElement('button');
-                    resolveBtn.textContent = 'Mark Resolved';
+                    resolveBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Resolved';
                     resolveBtn.className = 'btn btn-success';
+                    resolveBtn.style.padding = '0.6rem 1rem';
+                    resolveBtn.style.fontWeight = '500';
                     resolveBtn.addEventListener('click', () => markSosResolved(doc.id));
                     actionCell.appendChild(resolveBtn);
+                } else {
+                    // Show a disabled button for resolved alerts
+                    const resolvedLabel = document.createElement('span');
+                    resolvedLabel.innerHTML = '<i class="fas fa-check"></i> Resolved';
+                    resolvedLabel.className = 'btn btn-outline-success';
+                    resolvedLabel.style.opacity = '0.7';
+                    resolvedLabel.style.cursor = 'default';
+                    actionCell.appendChild(resolvedLabel);
                 }
 
                 // Build the row
