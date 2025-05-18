@@ -99,18 +99,23 @@ onAuthStateChanged(auth, (user) => {
         adminContent.style.display = 'block';
         userEmail.textContent = user.email;
         
-        // Set up Firestore listener based on current filter
+        // Set up Firestore listeners
         setupFirestoreListener();
+        setupSOSListener(); // Also set up SOS listener on login
     } else {
         // User is signed out
         loginContainer.style.display = 'block';
         adminContent.style.display = 'none';
         userEmail.textContent = '';
         
-        // Clear any existing listener
+        // Clear any existing listeners
         if (unsubscribe) {
             unsubscribe();
             unsubscribe = null;
+        }
+        if (sosUnsubscribe) {
+            sosUnsubscribe();
+            sosUnsubscribe = null;
         }
     }
 });
@@ -467,8 +472,10 @@ function setupSOSListener() {
     sosTableBody.innerHTML = '';
     noSosMessage.style.display = 'none';
     
+    console.log('Setting up SOS listener');
+    
     let q = collection(db, "sosAlerts");
-    q = query(q, orderBy("timestamp", "desc"));
+    // Don't filter by timestamp initially as it might not exist in all documents
     
     const selectedFilter = sosStatusFilter.value;
     if (selectedFilter !== 'all') {
@@ -521,10 +528,16 @@ function createSOSRow(id, sosAlert) {
             timestamp = new Date(sosAlert.timestamp.toDate()).toLocaleString();
         } else if (sosAlert.timestamp.seconds) {
             timestamp = new Date(sosAlert.timestamp.seconds * 1000).toLocaleString();
+        } else if (typeof sosAlert.timestamp === 'string') {
+            timestamp = sosAlert.timestamp; // Use the string timestamp directly
         } else {
             timestamp = new Date(sosAlert.timestamp).toLocaleString();
         }
     }
+    
+    // Get user information
+    const userId = sosAlert.userId || 'Unknown';
+    const userName = sosAlert.userName || 'Unknown User';
     
     // Create status badge
     const statusBadge = document.createElement('span');
@@ -536,7 +549,7 @@ function createSOSRow(id, sosAlert) {
     
     // Create location status badge
     const locationBadge = document.createElement('span');
-    const hasLocation = sosAlert.latitude && sosAlert.longitude;
+    const hasLocation = sosAlert.hasLocation === true || (sosAlert.latitude && sosAlert.longitude);
     locationBadge.textContent = hasLocation ? 'Yes' : 'No';
     locationBadge.className = `status-badge status-${hasLocation ? 'accepted' : 'rejected'}`;
     
@@ -550,8 +563,8 @@ function createSOSRow(id, sosAlert) {
     
     // Set row content
     row.innerHTML = `
-        <td>${id}</td>
-        <td>${sosAlert.userName || 'Unknown'}</td>
+        <td>${id.substring(0, 8)}...</td>
+        <td>${userName}</td>
         <td>${timestamp}</td>
         <td>${sosAlert.address || 'Location not available'}</td>
         <td></td>
@@ -573,6 +586,7 @@ function createSOSRow(id, sosAlert) {
         row.classList.add('emergency-row');
     }
     
+    console.log('Created SOS row:', id, sosAlert);
     return row;
 }
 
@@ -588,6 +602,8 @@ function showSOSDetails(sosId) {
         return;
     }
     
+    console.log('Showing SOS details for:', sosId, sosAlert);
+    
     // Format timestamp
     let timestamp = 'N/A';
     if (sosAlert.timestamp) {
@@ -595,6 +611,8 @@ function showSOSDetails(sosId) {
             timestamp = new Date(sosAlert.timestamp.toDate()).toLocaleString();
         } else if (sosAlert.timestamp.seconds) {
             timestamp = new Date(sosAlert.timestamp.seconds * 1000).toLocaleString();
+        } else if (typeof sosAlert.timestamp === 'string') {
+            timestamp = sosAlert.timestamp; // Use the string timestamp directly
         } else {
             timestamp = new Date(sosAlert.timestamp).toLocaleString();
         }
@@ -606,7 +624,7 @@ function showSOSDetails(sosId) {
             <strong>Alert ID:</strong> ${sosId}
         </div>
         <div class="detail-item">
-            <strong>User:</strong> ${sosAlert.userName || 'Unknown'}
+            <strong>User:</strong> ${sosAlert.userName || sosAlert.userId || 'Unknown'}
         </div>
         <div class="detail-item">
             <strong>User ID:</strong> ${sosAlert.userId || 'Unknown'}
@@ -617,16 +635,23 @@ function showSOSDetails(sosId) {
         <div class="detail-item">
             <strong>Status:</strong> ${sosAlert.status || 'active'}
         </div>
+        <div class="detail-item">
+            <strong>Device Info:</strong> ${sosAlert.deviceInfo || 'Not available'}
+        </div>
+        <div class="detail-item">
+            <strong>Type:</strong> ${sosAlert.type || 'Standard SOS'}
+        </div>
     `;
     
     // Add location information if available
-    if (sosAlert.latitude && sosAlert.longitude) {
+    const hasLocation = sosAlert.hasLocation === true || (sosAlert.latitude && sosAlert.longitude);
+    if (hasLocation) {
         detailsHTML += `
             <div class="detail-item">
                 <strong>Location:</strong> ${sosAlert.address || 'Address not available'}
             </div>
             <div class="detail-item">
-                <strong>Coordinates:</strong> ${sosAlert.latitude}, ${sosAlert.longitude}
+                <strong>Coordinates:</strong> ${sosAlert.latitude || 'N/A'}, ${sosAlert.longitude || 'N/A'}
             </div>
             <div class="detail-item map-container">
                 <strong>Map:</strong><br>
