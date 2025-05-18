@@ -539,99 +539,78 @@ function setupSOSListener() {
     sosTableBody.innerHTML = '';
     noSosMessage.style.display = 'none';
     
-    // First, get the document ID from the top-level sosAlerts collection
-    getDocs(collection(db, "sosAlerts"))
-        .then(snapshot => {
-            if (snapshot.empty) {
-                console.error('No documents found in top-level sosAlerts collection');
-                sosLoadingIndicator.style.display = 'none';
-                noSosMessage.style.display = 'block';
-                return;
-            }
+    // Query the sosAlerts collection directly
+    let q = collection(db, "sosAlerts");
+    
+    // Apply status filter if selected
+    const selectedFilter = sosStatusFilter.value;
+    if (selectedFilter !== 'all') {
+        q = query(q, where("status", "==", selectedFilter));
+    }
+    
+    console.log('Querying Firestore for SOS alerts collection');
+    
+    // Set up the snapshot listener on the collection
+    sosUnsubscribe = onSnapshot(q, (querySnapshot) => {
+        console.log('SOS alerts snapshot received:', querySnapshot.size, 'documents');
+        
+        // Store all SOS alerts in the allSOSAlerts array
+        allSOSAlerts = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            console.log('SOS alert data:', doc.id, data);
+            return {
+                id: doc.id,
+                ...data,
+                // Ensure status is set (default to 'active' if missing)
+                status: data.status || 'active'
+            };
+        });
+        
+        // Update statistics based on the new data
+        updateSOSStatistics();
+        
+        // Hide loading indicator
+        sosLoadingIndicator.style.display = 'none';
+        
+        // Clear existing table rows
+        sosTableBody.innerHTML = '';
+        
+        if (querySnapshot.empty) {
+            console.log('No SOS alerts found');
+            noSosMessage.style.display = 'block';
+        } else {
+            noSosMessage.style.display = 'none';
             
-            // Get the first document ID (there should only be one)
-            const docId = snapshot.docs[0].id;
-            console.log('Found sosAlerts document ID:', docId);
+            // Populate table with SOS alerts
+            console.log('Populating table with', allSOSAlerts.length, 'SOS alerts');
             
-            // Now query the subcollection using this document ID
-            let q = collection(db, "sosAlerts", docId, "sosAlerts");
+            // Make sure the table is visible
+            sosTableBody.style.display = 'table-row-group';
+            sosTableBody.style.visibility = 'visible';
+            sosTableBody.style.opacity = '1';
             
-            // Apply status filter if selected
-            const selectedFilter = sosStatusFilter.value;
-            if (selectedFilter !== 'all') {
-                q = query(q, where("status", "==", selectedFilter));
-            }
-            
-            console.log('Querying Firestore for SOS alerts subcollection');
-            
-            // Set up the snapshot listener on the subcollection
-            sosUnsubscribe = onSnapshot(q, (querySnapshot) => {
-                console.log('SOS alerts snapshot received:', querySnapshot.size, 'documents');
-                
-                // Store all SOS alerts in the allSOSAlerts array
-                allSOSAlerts = querySnapshot.docs.map(doc => {
-                    const data = doc.data();
-                    console.log('SOS alert data:', doc.id, data);
-                    return {
-                        id: doc.id,
-                        ...data,
-                        // Ensure status is set (default to 'active' if missing)
-                        status: data.status || 'active'
-                    };
-                });
-                
-                // Update statistics based on the new data
-                updateSOSStatistics();
-                
-                // Hide loading indicator
-                sosLoadingIndicator.style.display = 'none';
-                
-                // Clear existing table rows
-                sosTableBody.innerHTML = '';
-                
-                if (querySnapshot.empty) {
-                    console.log('No SOS alerts found');
-                    noSosMessage.style.display = 'block';
-                } else {
-                    noSosMessage.style.display = 'none';
+            // Create and append each row
+            allSOSAlerts.forEach(sosAlert => {
+                try {
+                    console.log('Creating row for SOS alert:', sosAlert.id);
+                    const row = createSOSRow(sosAlert.id, sosAlert);
                     
-                    // Populate table with SOS alerts
-                    console.log('Populating table with', allSOSAlerts.length, 'SOS alerts');
+                    // Ensure the row has proper styling
+                    row.style.display = 'table-row';
+                    row.style.visibility = 'visible';
+                    row.style.opacity = '1';
                     
-                    // Make sure the table is visible
-                    sosTableBody.style.display = 'table-row-group';
-                    sosTableBody.style.visibility = 'visible';
-                    sosTableBody.style.opacity = '1';
-                    
-                    // Create and append each row
-                    allSOSAlerts.forEach(sosAlert => {
-                        try {
-                            console.log('Creating row for SOS alert:', sosAlert.id);
-                            const row = createSOSRow(sosAlert.id, sosAlert);
-                            
-                            // Ensure the row has proper styling
-                            row.style.display = 'table-row';
-                            row.style.visibility = 'visible';
-                            row.style.opacity = '1';
-                            
-                            // Add to table
-                            sosTableBody.appendChild(row);
-                            console.log('Row appended for SOS alert:', sosAlert.id);
-                        } catch (error) {
-                            console.error('Error creating row for SOS alert:', sosAlert.id, error);
-                        }
-                    });
-                    
-                    console.log('SOS table populated with', sosTableBody.children.length, 'rows');
+                    // Add to table
+                    sosTableBody.appendChild(row);
+                    console.log('Row appended for SOS alert:', sosAlert.id);
+                } catch (error) {
+                    console.error('Error creating row for SOS alert:', sosAlert.id, error);
                 }
             });
-        })
-        .catch(error => {
-            console.error('Error getting SOS alerts:', error);
-            sosLoadingIndicator.style.display = 'none';
-            noSosMessage.style.display = 'block';
-            noSosMessage.textContent = 'Error loading SOS alerts: ' + error.message;
-        });
+            
+            console.log('SOS table populated with', sosTableBody.children.length, 'rows');
+        }
+    });
 }
 
 // Create a table row for an SOS alert
