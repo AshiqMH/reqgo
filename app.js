@@ -72,11 +72,16 @@ const sosDetailsContent = document.getElementById('sos-details');
 const resolveButton = document.getElementById('resolve-btn');
 const contactButton = document.getElementById('contact-btn');
 
-// Stats elements
+// Help Request Stats elements
 const pendingCount = document.getElementById('pending-count');
 const acceptedCount = document.getElementById('accepted-count');
 const rejectedCount = document.getElementById('rejected-count');
 const totalCount = document.getElementById('total-count');
+
+// SOS Stats elements
+const activeSOSCount = document.getElementById('active-sos-count');
+const resolvedSOSCount = document.getElementById('resolved-sos-count');
+const totalSOSCount = document.getElementById('total-sos-count');
 
 // Add DOM elements for admin management
 const adminCreateForm = document.getElementById('admin-create-form');
@@ -184,17 +189,28 @@ logoutButton.addEventListener('click', () => {
 
 // Tab navigation
 requestsTab.addEventListener('click', () => {
+    // Show Help Requests tab content
     requestsSection.style.display = 'block';
     sosSection.style.display = 'none';
+    // Show Help Requests stats
+    document.getElementById('help-requests-stats').style.display = 'grid';
+    document.getElementById('sos-alerts-stats').style.display = 'none';
+    // Update active tab styling
     requestsTab.classList.add('active');
     sosTab.classList.remove('active');
 });
 
 sosTab.addEventListener('click', () => {
+    // Show SOS Alerts tab content
     requestsSection.style.display = 'none';
     sosSection.style.display = 'block';
+    // Show SOS Alerts stats
+    document.getElementById('help-requests-stats').style.display = 'none';
+    document.getElementById('sos-alerts-stats').style.display = 'grid';
+    // Update active tab styling
     requestsTab.classList.remove('active');
     sosTab.classList.add('active');
+    // Refresh SOS data
     setupSOSListener();
 });
 
@@ -435,7 +451,7 @@ async function updateRequestStatus(requestId, status) {
     }
 }
 
-// Update statistics
+// Update help request statistics
 function updateStatistics() {
     // Count requests by status from allRequests array
     const pendingRequests = allRequests.filter(req => req.status === 'pending').length;
@@ -448,6 +464,21 @@ function updateStatistics() {
     acceptedCount.textContent = acceptedRequests;
     rejectedCount.textContent = rejectedRequests;
     totalCount.textContent = totalRequests;
+}
+
+// Update SOS alerts statistics
+function updateSOSStatistics() {
+    // Count SOS alerts by status from allSOSAlerts array
+    const activeSOS = allSOSAlerts.filter(alert => alert.status === 'active').length;
+    const resolvedSOS = allSOSAlerts.filter(alert => alert.status === 'resolved').length;
+    const totalSOS = allSOSAlerts.length;
+    
+    // Update UI
+    if (activeSOSCount) activeSOSCount.textContent = activeSOS;
+    if (resolvedSOSCount) resolvedSOSCount.textContent = resolvedSOS;
+    if (totalSOSCount) totalSOSCount.textContent = totalSOS;
+    
+    console.log('SOS Statistics updated:', { active: activeSOS, resolved: resolvedSOS, total: totalSOS });
 }
 
 // Show/hide loading indicator
@@ -509,6 +540,9 @@ function setupSOSListener() {
                 sosTableBody.appendChild(row);
             });
         }
+        
+        // Update SOS statistics
+        updateSOSStatistics();
     }, error => {
         console.error('Error getting SOS alerts:', error);
         sosLoadingIndicator.style.display = 'none';
