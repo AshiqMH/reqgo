@@ -122,6 +122,22 @@
                     <div id="sos-tab-content" class="tab-pane">
                         <h2>Emergency SOS Alerts</h2>
                         
+                        <!-- Dashboard Summary for SOS -->
+                        <div class="dashboard-summary" id="sos-summary">
+                            <div class="stat-card">
+                                <div class="stat-value" id="active-sos-count">0</div>
+                                <div class="stat-label">Active</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="resolved-sos-count">0</div>
+                                <div class="stat-label">Resolved</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="total-sos-count">0</div>
+                                <div class="stat-label">Total</div>
+                            </div>
+                        </div>
+                        
                         <!-- SOS Filter Controls -->
                         <div class="filter-controls">
                             <label for="sos-status-filter">Filter by Status:</label>
@@ -150,7 +166,17 @@
                                     <!-- Rows inserted by JS -->
                                 </tbody>
                             </table>
-                            <div id="sos-no-data" class="no-data-message" style="display: none;">No SOS alerts found.</div>
+                            
+                            <!-- Loading indicator for SOS -->
+                            <div id="sos-loading-indicator" class="loading-indicator">
+                                <div class="spinner"></div>
+                                <p>Loading SOS alerts...</p>
+                            </div>
+                            
+                            <!-- No data message -->
+                            <div id="sos-no-data" class="no-data-message" style="display: none;">
+                                No SOS alerts found.
+                            </div>
                         </div>
                     </div>
                     

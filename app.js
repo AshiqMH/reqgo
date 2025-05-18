@@ -534,8 +534,11 @@ function showAdminStatus(message, isSuccess) {
 function loadSosAlerts() {
     const sosTableBody = document.getElementById('sos-alerts-body');
     const noData = document.getElementById('sos-no-data');
+    const loadingIndicator = document.getElementById('sos-loading-indicator');
     const filter = document.getElementById('sos-status-filter')?.value || 'all';
 
+    // Show loading indicator
+    if (loadingIndicator) loadingIndicator.style.display = 'flex';
     sosTableBody.innerHTML = '';
     noData.style.display = 'none';
 
@@ -548,6 +551,9 @@ function loadSosAlerts() {
 
     getDocs(q)
         .then(snapshot => {
+            // Hide loading indicator
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
+            
             if (snapshot.empty) {
                 noData.style.display = 'block';
                 return;
@@ -560,34 +566,88 @@ function loadSosAlerts() {
                 const timestamp = data.timestamp?.seconds
                     ? new Date(data.timestamp.seconds * 1000).toLocaleString()
                     : 'N/A';
+                    
+                // Create status badge
+                const statusBadge = document.createElement('span');
+                statusBadge.textContent = data.status || 'unknown';
+                statusBadge.className = `status-badge status-${data.status || 'unknown'}`;
+                
+                // Create action button
+                const actionCell = document.createElement('td');
+                if (data.status === 'active') {
+                    const resolveBtn = document.createElement('button');
+                    resolveBtn.textContent = 'Mark Resolved';
+                    resolveBtn.className = 'btn btn-success';
+                    resolveBtn.addEventListener('click', () => markSosResolved(doc.id));
+                    actionCell.appendChild(resolveBtn);
+                }
 
+                // Build the row
                 row.innerHTML = `
                     <td>${doc.id.slice(0, 8)}...</td>
                     <td>${data.deviceInfo || 'Unknown'}</td>
-                    <td>${data.latitude}</td>
-                    <td>${data.longitude}</td>
-                    <td>${data.status}</td>
+                    <td>${data.latitude || 'N/A'}</td>
+                    <td>${data.longitude || 'N/A'}</td>
                     <td>${timestamp}</td>
                     <td>${data.userId || 'N/A'}</td>
-                    <td>
-                        ${data.status === 'active'
-                            ? `<button class="btn btn-success" onclick="markSosResolved('${doc.id}')">Mark Resolved</button>`
-                            : ''}
-                    </td>
                 `;
+                
+                // Add status badge
+                const statusCell = document.createElement('td');
+                statusCell.appendChild(statusBadge);
+                
+                // Insert status cell at position 4 (after longitude)
+                row.insertBefore(statusCell, row.children[4]);
+                
+                // Add action button
+                row.appendChild(actionCell);
 
                 sosTableBody.appendChild(row);
             });
+            
+            // Update SOS statistics after loading alerts
+            updateSosStatistics();
         })
         .catch(error => {
             console.error("Error loading SOS alerts:", error);
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
             noData.textContent = "Failed to load SOS alerts.";
             noData.style.display = 'block';
         });
 }
 
+// Update SOS statistics
+function updateSosStatistics() {
+    const activeCount = document.getElementById('active-sos-count');
+    const resolvedCount = document.getElementById('resolved-sos-count');
+    const totalCount = document.getElementById('total-sos-count');
+    
+    // Get counts from Firestore
+    const sosRef = collection(db, "sosAlerts");
+    
+    // Get total count
+    getDocs(sosRef).then(snapshot => {
+        if (totalCount) totalCount.textContent = snapshot.size;
+        
+        // Count by status
+        let active = 0;
+        let resolved = 0;
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.status === 'active') active++;
+            else if (data.status === 'resolved') resolved++;
+        });
+        
+        if (activeCount) activeCount.textContent = active;
+        if (resolvedCount) resolvedCount.textContent = resolved;
+    }).catch(error => {
+        console.error("Error getting SOS statistics:", error);
+    });
+}
+
 // Update SOS status to resolved
-window.markSosResolved = async function (id) {
+async function markSosResolved(id) {
     try {
         const sosRef = doc(db, "sosAlerts", id);
         await updateDoc(sosRef, {
@@ -596,11 +656,15 @@ window.markSosResolved = async function (id) {
         });
         alert("SOS marked as resolved.");
         loadSosAlerts(); // Refresh
+        updateSosStatistics(); // Update statistics
     } catch (err) {
         console.error("Error updating SOS alert:", err);
         alert("Failed to mark as resolved.");
     }
 }
+
+// Make markSosResolved available globally
+window.markSosResolved = markSosResolved;
 
 // Listen for status filter changes
 const sosFilterDropdown = document.getElementById('sos-status-filter');

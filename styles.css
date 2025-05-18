@@ -224,6 +224,72 @@ main {
     to { opacity: 1; }
 }
 
+/* Responsive Styles */
+@media (max-width: 768px) {
+    .dashboard-summary {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .tabs-nav {
+        flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+        flex: 1 1 auto;
+        text-align: center;
+        padding: 0.75rem 1rem;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 576px) {
+    main {
+        padding: 1rem;
+    }
+    
+    .dashboard-summary {
+        grid-template-columns: 1fr;
+    }
+    
+    .admin-content {
+        padding: 1rem;
+    }
+    
+    .data-table {
+        font-size: 0.8rem;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 0.4rem;
+    }
+    
+    .modal-content {
+        width: 95%;
+    }
+    
+    .app-header {
+        padding: 0.75rem 1rem;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .user-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
 /* Dashboard Summary Styles */
 .dashboard-summary {
     display: grid;
@@ -292,6 +358,9 @@ main {
 .table-container {
     position: relative;
     overflow-x: auto;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
 }
 
 .data-table {
@@ -332,6 +401,25 @@ main {
 .data-table .status-rejected {
     color: var(--danger-color);
     font-weight: 500;
+}
+
+/* SOS Alert Status Styles */
+.data-table .status-active {
+    color: var(--danger-color);
+    font-weight: 700;
+    background-color: rgba(234, 67, 53, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.data-table .status-resolved {
+    color: var(--success-color);
+    font-weight: 500;
+    background-color: rgba(52, 168, 83, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
 }
 
 /* Loading Indicator Styles */
