@@ -62,8 +62,7 @@ const rejectButton = document.getElementById('reject-btn');
 // SOS Alerts elements
 const sosTab = document.getElementById('sos-tab');
 const sosSection = document.getElementById('sos-section');
-const sosStatusFilter = document.getElementById('sos-status-filter');
-const sosTable = document.getElementById('sos-table');
+const sosStatusFilter = document.getElementById('sos-status-filter')
 const sosTableBody = document.getElementById('sos-table-body');
 const sosLoadingIndicator = document.getElementById('sos-loading-indicator');
 const noSosMessage = document.getElementById('no-sos-message');
@@ -536,144 +535,93 @@ function setupSOSListener() {
     noSosMessage.style.display = 'none';
     
     // Query the sosAlerts collection directly
-    let q = collection(db, "sosAlerts");
-    
-    // Apply status filter if selected
-    const selectedFilter = sosStatusFilter.value;
-    if (selectedFilter !== 'all') {
-        q = query(q, where("status", "==", selectedFilter));
-    }
-    
-    console.log('Querying Firestore for SOS alerts collection');
+    const sosRef = collection(db, "sosAlerts");
     
     // Set up the snapshot listener on the collection
-    sosUnsubscribe = onSnapshot(q, (querySnapshot) => {
+    sosUnsubscribe = onSnapshot(sosRef, (snapshot) => {
+        console.log('SOS alerts snapshot received:', snapshot.size, 'documents');
         sosLoadingIndicator.style.display = 'none';
         
-        // Store all SOS alerts in the allSOSAlerts array
-        allSOSAlerts = querySnapshot.docs.map(doc => {
-            return {
-                id: doc.id,
-                ...doc.data()
-            };
-        });
+        let activeCount = 0;
+        let resolvedCount = 0;
         
-        if (querySnapshot.empty) {
+        // Clear existing table rows
+        sosTableBody.innerHTML = '';
+        
+        // Store all SOS alerts in the allSOSAlerts array for other functions to use
+        allSOSAlerts = [];
+        
+        if (snapshot.empty) {
+            console.log('No SOS alerts found');
             noSosMessage.style.display = 'block';
-            sosTableBody.innerHTML = '';
         } else {
             noSosMessage.style.display = 'none';
             
-            // Clear existing table rows
-            sosTableBody.innerHTML = '';
-            
             // Populate table with SOS alerts
-            querySnapshot.forEach(doc => {
-                const sosAlert = doc.data();
-                const row = createSOSRow(doc.id, sosAlert);
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                allSOSAlerts.push({
+                    id: doc.id,
+                    ...data
+                });
+                
+                // Update stats
+                if (data.status === "active") activeCount++;
+                else if (data.status === "resolved") resolvedCount++;
+                
+                // Format timestamp
+                let formattedTime = 'N/A';
+                if (data.timestamp) {
+                    if (data.timestamp.toDate) {
+                        formattedTime = new Date(data.timestamp.toDate()).toLocaleString();
+                    } else if (data.timestamp.seconds) {
+                        formattedTime = new Date(data.timestamp.seconds * 1000).toLocaleString();
+                    } else {
+                        formattedTime = data.timestamp.toString();
+                    }
+                }
+                
+                // ✅ Render each row
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${doc.id.substring(0, 8)}...</td>
+                    <td>${data.userId || "—"}</td>
+                    <td>${formattedTime}</td>
+                    <td>${data.latitude || "—"}, ${data.longitude || "—"}</td>
+                    <td><span class="status-badge status-${data.status || 'active'}">${data.status || "active"}</span></td>
+                    <td><span class="status-badge status-${data.latitude && data.longitude ? 'accepted' : 'rejected'}">${data.latitude && data.longitude ? 'Yes' : 'No'}</span></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-primary btn-sm view-sos" data-id="${doc.id}">View</button>
+                            ${data.status === 'active' ? `<button class="btn btn-success btn-sm resolve-sos" data-id="${doc.id}">Resolve</button>` : ''}
+                        </div>
+                    </td>
+                `;
+                
+                // Add event listeners to buttons
+                const viewBtn = row.querySelector('.view-sos');
+                if (viewBtn) viewBtn.addEventListener('click', () => showSOSDetails(doc.id));
+                
+                const resolveBtn = row.querySelector('.resolve-sos');
+                if (resolveBtn) resolveBtn.addEventListener('click', () => updateSOSStatus(doc.id, 'resolved'));
+                
+                console.log("Appending SOS row:", data);
                 sosTableBody.appendChild(row);
             });
+            
+            console.log('SOS table populated with', sosTableBody.children.length, 'rows');
         }
         
-        // Update statistics
-        updateSOSStatistics();
+        // Update statistics with the counts we gathered
+        document.getElementById('sos-active-count').textContent = activeCount;
+        document.getElementById('sos-resolved-count').textContent = resolvedCount;
+        document.getElementById('sos-total-count').textContent = activeCount + resolvedCount;
     }, error => {
         console.error('Error getting SOS alerts:', error);
         sosLoadingIndicator.style.display = 'none';
         noSosMessage.style.display = 'block';
         noSosMessage.textContent = `Error loading data: ${error.message}`;
     });
-}
-
-// Create a table row for an SOS alert
-function createSOSRow(id, sosAlert) {
-    const row = document.createElement('tr');
-    
-    // Format timestamp
-    let timestamp = 'N/A';
-    if (sosAlert.timestamp) {
-        if (sosAlert.timestamp.toDate) {
-            timestamp = new Date(sosAlert.timestamp.toDate()).toLocaleString();
-        } else if (sosAlert.timestamp.seconds) {
-            timestamp = new Date(sosAlert.timestamp.seconds * 1000).toLocaleString();
-        } else if (typeof sosAlert.timestamp === 'string') {
-            timestamp = sosAlert.timestamp; // Use the string timestamp directly
-        } else {
-            timestamp = new Date(sosAlert.timestamp).toLocaleString();
-        }
-    }
-    
-    // Get user information
-    const userId = sosAlert.userId || 'Unknown';
-    const userName = sosAlert.userName || userId;
-    
-    // Create location text based on coordinates
-    let locationText = 'Location not available';
-    if (sosAlert.latitude && sosAlert.longitude) {
-        locationText = `Lat: ${sosAlert.latitude}, Lng: ${sosAlert.longitude}`;
-    }
-    
-    // Create status badge
-    const statusBadge = document.createElement('span');
-    statusBadge.textContent = sosAlert.status || 'active';
-    statusBadge.className = `status-badge status-${sosAlert.status || 'active'}`;
-    if (sosAlert.status === 'active') {
-        statusBadge.classList.add('emergency');
-    }
-    
-    // Create location status badge
-    const locationBadge = document.createElement('span');
-    const hasLocation = sosAlert.hasLocation === true || (sosAlert.latitude && sosAlert.longitude);
-    locationBadge.textContent = hasLocation ? 'Yes' : 'No';
-    locationBadge.className = `status-badge status-${hasLocation ? 'accepted' : 'rejected'}`;
-    
-    // Create view button
-    const viewBtn = document.createElement('button');
-    viewBtn.textContent = 'View Details';
-    viewBtn.className = 'btn btn-primary';
-    viewBtn.addEventListener('click', () => showSOSDetails(id));
-    
-    // Create action buttons div
-    const actionDiv = document.createElement('div');
-    actionDiv.className = 'action-buttons';
-    actionDiv.appendChild(viewBtn);
-    
-    // Add resolve button for active alerts
-    if (sosAlert.status === 'active') {
-        const resolveBtn = document.createElement('button');
-        resolveBtn.textContent = 'Resolve';
-        resolveBtn.className = 'btn btn-success';
-        resolveBtn.addEventListener('click', () => updateSOSStatus(id, 'resolved'));
-        actionDiv.appendChild(resolveBtn);
-    }
-    
-    // Build the row
-    row.innerHTML = `
-        <td>${id.substring(0, 8)}...</td>
-        <td>${userName}</td>
-        <td>${timestamp}</td>
-        <td>${locationText}</td>
-        <td></td>
-        <td></td>
-        <td></td>
-    `;
-    
-    // Add status badge to the status cell
-    row.cells[4].appendChild(statusBadge);
-    
-    // Add location badge to the location cell
-    row.cells[5].appendChild(locationBadge);
-    
-    // Add action buttons to the action cell
-    row.cells[6].appendChild(actionDiv);
-    
-    // Highlight emergency rows
-    if (sosAlert.status === 'active') {
-        row.classList.add('emergency-row');
-    }
-    
-    console.log('Created SOS row:', id, sosAlert);
-    return row;
 }
 
 // Show SOS alert details in modal
@@ -843,25 +791,21 @@ function init() {
 // Start the app
 init();
 
-// Force load SOS alerts data immediately after initialization
-setTimeout(() => {
-    console.log('Forcing initial load of SOS alerts');
+// Force load SOS alerts data immediately after initialization and add test data if needed
+setTimeout(async () => {
+    console.log('Checking for SOS alerts...');
+    const hasAlerts = await checkSOSAlertsExist();
     
-    // First check if any SOS alerts exist
-    checkSOSAlertsExist().then(exists => {
-        if (!exists) {
-            console.log('No SOS alerts found, adding test data...');
-            addTestSOSAlert().then(() => {
-                console.log('Test SOS alert added successfully');
-                setupSOSListener();
-            });
-        } else {
-            console.log('SOS alerts exist, loading them...');
-            setupSOSListener();
-        }
-    });
+    if (!hasAlerts) {
+        console.log('No SOS alerts found, adding a test alert...');
+        await addTestSOSAlert();
+        // Reload SOS alerts after adding test data
+        setupSOSListener();
+    } else {
+        console.log('SOS alerts exist, loading them...');
+    }
     
-    // Debug SOS alerts display
+    // Debug SOS alerts display after a short delay
     setTimeout(debugSOSDisplay, 3000);
 }, 2000);
 
