@@ -16,7 +16,8 @@ import {
     updateDoc, 
     onSnapshot,
     orderBy,
-    getDoc
+    getDoc,
+    addDoc
 } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
 // Firebase configuration
@@ -894,11 +895,58 @@ init();
 // Force load SOS alerts data immediately after initialization
 setTimeout(() => {
     console.log('Forcing initial load of SOS alerts');
-    setupSOSListener();
+    
+    // First check if any SOS alerts exist
+    checkSOSAlertsExist().then(exists => {
+        if (!exists) {
+            console.log('No SOS alerts found, adding test data...');
+            addTestSOSAlert().then(() => {
+                console.log('Test SOS alert added successfully');
+                setupSOSListener();
+            });
+        } else {
+            console.log('SOS alerts exist, loading them...');
+            setupSOSListener();
+        }
+    });
     
     // Debug SOS alerts display
     setTimeout(debugSOSDisplay, 3000);
 }, 2000);
+
+// Check if any SOS alerts exist
+async function checkSOSAlertsExist() {
+    try {
+        const snapshot = await getDocs(collection(db, "sosAlerts"));
+        console.log('SOS alerts check:', snapshot.size, 'documents found');
+        return !snapshot.empty;
+    } catch (error) {
+        console.error('Error checking SOS alerts:', error);
+        return false;
+    }
+}
+
+// Add a test SOS alert
+async function addTestSOSAlert() {
+    try {
+        const testAlert = {
+            userId: "testUser123",
+            deviceInfo: "V2055",
+            timestamp: new Date(),
+            latitude: 13.269782,
+            longitude: 74.7627832,
+            status: "active",
+            hasLocation: true
+        };
+        
+        const docRef = await addDoc(collection(db, "sosAlerts"), testAlert);
+        console.log('Test SOS alert added with ID:', docRef.id);
+        return docRef.id;
+    } catch (error) {
+        console.error('Error adding test SOS alert:', error);
+        return null;
+    }
+}
 
 // Debug function to help identify issues with SOS alerts display
 function debugSOSDisplay() {
