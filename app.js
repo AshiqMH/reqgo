@@ -505,26 +505,35 @@ function setupSOSListener() {
     
     console.log('Setting up SOS listener');
     
+    // Get all SOS alerts without initial filtering
     let q = collection(db, "sosAlerts");
-    // Don't filter by timestamp initially as it might not exist in all documents
     
+    // Apply status filter if selected
     const selectedFilter = sosStatusFilter.value;
     if (selectedFilter !== 'all') {
         q = query(q, where("status", "==", selectedFilter));
     }
     
+    console.log('Querying Firestore for SOS alerts');
+    
     sosUnsubscribe = onSnapshot(q, (querySnapshot) => {
         sosLoadingIndicator.style.display = 'none';
+        console.log('SOS alerts snapshot received:', querySnapshot.size, 'documents');
         
         // Store all SOS alerts in the allSOSAlerts array
         allSOSAlerts = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            console.log('SOS alert data:', doc.id, data);
             return {
                 id: doc.id,
-                ...doc.data()
+                ...data,
+                // Ensure status is set (default to 'active' if missing)
+                status: data.status || 'active'
             };
         });
         
         if (querySnapshot.empty) {
+            console.log('No SOS alerts found');
             noSosMessage.style.display = 'block';
             sosTableBody.innerHTML = '';
         } else {
@@ -534,9 +543,9 @@ function setupSOSListener() {
             sosTableBody.innerHTML = '';
             
             // Populate table with SOS alerts
-            querySnapshot.forEach(doc => {
-                const sosAlert = doc.data();
-                const row = createSOSRow(doc.id, sosAlert);
+            allSOSAlerts.forEach(sosAlert => {
+                console.log('Creating row for SOS alert:', sosAlert.id);
+                const row = createSOSRow(sosAlert.id, sosAlert);
                 sosTableBody.appendChild(row);
             });
         }
@@ -553,6 +562,7 @@ function setupSOSListener() {
 
 // Create a table row for an SOS alert
 function createSOSRow(id, sosAlert) {
+    console.log('Creating SOS row with data:', sosAlert);
     const row = document.createElement('tr');
     
     // Format timestamp
@@ -611,12 +621,18 @@ function createSOSRow(id, sosAlert) {
         actionDiv.appendChild(resolveBtn);
     }
     
+    // Create location text based on coordinates
+    let locationText = 'Location not available';
+    if (sosAlert.latitude && sosAlert.longitude) {
+        locationText = `Lat: ${sosAlert.latitude}, Lng: ${sosAlert.longitude}`;
+    }
+    
     // Set row content
     row.innerHTML = `
         <td>${id.substring(0, 8)}...</td>
-        <td>${userName}</td>
+        <td>${userName || sosAlert.userId || 'Unknown'}</td>
         <td>${timestamp}</td>
-        <td>${sosAlert.address || 'Location not available'}</td>
+        <td>${locationText}</td>
         <td></td>
         <td></td>
         <td></td>
@@ -779,6 +795,8 @@ function updateSOSStatus(sosId, status) {
 
 // Init function updated to hide admin management initially
 function init() {
+    console.log('Initializing admin panel...');
+    
     // Set default tab to requests
     requestsTab.classList.add('active');
     sosTab.classList.remove('active');
@@ -795,9 +813,15 @@ function init() {
     // Show loading indicator
     showLoading(true);
     
-    // Set up both listeners to load data
+    // Load SOS alerts immediately to ensure they're available
+    // even if the user doesn't click the SOS tab
+    setTimeout(() => {
+        console.log('Loading SOS alerts...');
+        setupSOSListener();
+    }, 1000);
+    
+    // Set up help requests listener
     setupFirestoreListener();
-    setupSOSListener();
     
     console.log('Admin panel initialized');
 }
