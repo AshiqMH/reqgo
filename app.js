@@ -16,11 +16,7 @@ import {
     updateDoc, 
     onSnapshot,
     orderBy,
-    getDoc,
-    addDoc,
-    setDoc,
-    limit,
-    deleteDoc
+    getDoc
 } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
 // Firebase configuration
@@ -47,6 +43,10 @@ const passwordInput = document.getElementById('password');
 const loginError = document.getElementById('login-error');
 const userEmail = document.getElementById('user-email');
 const logoutButton = document.getElementById('logout-btn');
+
+// Help Requests elements
+const requestsTab = document.getElementById('requests-tab');
+const requestsSection = document.getElementById('requests-section');
 const statusFilter = document.getElementById('status-filter');
 const requestsTable = document.getElementById('requests-table');
 const requestsTableBody = document.getElementById('requests-table-body');
@@ -57,6 +57,20 @@ const closeModalBtn = document.getElementById('close-modal');
 const requestDetailsContent = document.getElementById('request-details');
 const acceptButton = document.getElementById('accept-btn');
 const rejectButton = document.getElementById('reject-btn');
+
+// SOS Alerts elements
+const sosTab = document.getElementById('sos-tab');
+const sosSection = document.getElementById('sos-section');
+const sosStatusFilter = document.getElementById('sos-status-filter');
+const sosTable = document.getElementById('sos-table');
+const sosTableBody = document.getElementById('sos-table-body');
+const sosLoadingIndicator = document.getElementById('sos-loading-indicator');
+const noSosMessage = document.getElementById('no-sos-message');
+const sosModal = document.getElementById('sos-modal');
+const closeSosModalBtn = document.getElementById('close-sos-modal');
+const sosDetailsContent = document.getElementById('sos-details');
+const resolveButton = document.getElementById('resolve-btn');
+const contactButton = document.getElementById('contact-btn');
 
 // Stats elements
 const pendingCount = document.getElementById('pending-count');
@@ -69,10 +83,13 @@ const adminCreateForm = document.getElementById('admin-create-form');
 const userEmailInput = document.getElementById('admin-user-email');
 const adminStatus = document.getElementById('admin-status');
 
-// Current request being viewed
+// Current items being viewed
 let currentRequestId = null;
+let currentSOSId = null;
 let allRequests = [];
+let allSOSAlerts = [];
 let unsubscribe = null;
+let sosUnsubscribe = null;
 
 // Authentication state observer
 onAuthStateChanged(auth, (user) => {
@@ -114,7 +131,7 @@ loginForm.addEventListener('submit', (e) => {
             // Get user document from Firestore
             const userDocRef = doc(db, "users", user.uid);
             getDoc(userDocRef)
-                .then(async (docSnapshot) => {
+                .then((docSnapshot) => {
                     if (docSnapshot.exists()) {
                         const userData = docSnapshot.data();
                         
@@ -130,38 +147,10 @@ loginForm.addEventListener('submit', (e) => {
                             });
                         }
                     } else {
-                        // User document doesn't exist, check for temporary admin document
-                        console.log("Checking for temporary admin document");
-                        
-                        // Look for temporary document with this email
-                        const tempId = `temp_${email.replace(/[.@]/g, '_')}`;
-                        const tempDocRef = doc(db, "users", tempId);
-                        const tempDocSnapshot = await getDoc(tempDocRef);
-                        
-                        if (tempDocSnapshot.exists() && tempDocSnapshot.data().role === "admin") {
-                            // Found temporary admin, copy to permanent document with correct UID
-                            console.log("Found temporary admin document, migrating to permanent UID");
-                            
-                            const tempData = tempDocSnapshot.data();
-                            
-                            // Create permanent document with correct UID
-                            await setDoc(userDocRef, {
-                                ...tempData,
-                                isTemporary: false,
-                                updatedAt: new Date()
-                            });
-                            
-                            // Delete temporary document
-                            await deleteDoc(tempDocRef);
-                            
-                            console.log("Admin document migrated successfully");
-                            // Auth state change listener will handle the rest
-                        } else {
-                            // User is not an admin, sign them out
-                            signOut(auth).then(() => {
-                                loginError.textContent = "User profile not found. Please contact support.";
-                            });
-                        }
+                        // User document doesn't exist
+                        signOut(auth).then(() => {
+                            loginError.textContent = "User profile not found. Please contact support.";
+                        });
                     }
                 })
                 .catch((error) => {
@@ -188,20 +177,49 @@ logoutButton.addEventListener('click', () => {
         });
 });
 
+// Tab navigation
+requestsTab.addEventListener('click', () => {
+    requestsSection.style.display = 'block';
+    sosSection.style.display = 'none';
+    requestsTab.classList.add('active');
+    sosTab.classList.remove('active');
+});
+
+sosTab.addEventListener('click', () => {
+    requestsSection.style.display = 'none';
+    sosSection.style.display = 'block';
+    requestsTab.classList.remove('active');
+    sosTab.classList.add('active');
+    setupSOSListener();
+});
+
 // Status filter change
 statusFilter.addEventListener('change', () => {
     setupFirestoreListener();
 });
 
-// Close the modal when clicking the close button
+// SOS status filter change
+sosStatusFilter.addEventListener('change', () => {
+    setupSOSListener();
+});
+
+// Close the request modal when clicking the close button
 closeModalBtn.addEventListener('click', () => {
     requestDetailsModal.style.display = 'none';
 });
 
-// Close the modal when clicking outside of it
+// Close the SOS modal when clicking the close button
+closeSosModalBtn.addEventListener('click', () => {
+    sosModal.style.display = 'none';
+});
+
+// Close the modals when clicking outside of them
 window.addEventListener('click', (e) => {
     if (e.target === requestDetailsModal) {
         requestDetailsModal.style.display = 'none';
+    }
+    if (e.target === sosModal) {
+        sosModal.style.display = 'none';
     }
 });
 
@@ -327,12 +345,6 @@ function showRequestDetails(requestId) {
     const formattedDate = timestamp.toLocaleDateString();
     const formattedTime = timestamp.toLocaleTimeString();
     
-    // Format status with notification indicator
-    let statusHtml = `<span class="status-badge status-${request.status}">${request.status}</span>`;
-    if (request.status !== 'pending' && request.notificationSent) {
-        statusHtml += `<span class="notification-sent">Notification sent</span>`;
-    }
-    
     // Create HTML for request details
     let detailsHtml = `
         <div class="detail-item">
@@ -373,7 +385,7 @@ function showRequestDetails(requestId) {
         </div>
         <div class="detail-item">
             <div class="detail-label">Status:</div>
-            <div class="detail-value">${statusHtml}</div>
+            <div class="detail-value status-${request.status}">${request.status}</div>
         </div>
     `;
     
@@ -400,79 +412,18 @@ function showRequestDetails(requestId) {
 // Update request status
 async function updateRequestStatus(requestId, status) {
     try {
-        console.log(`Starting to update request: ${requestId} to status: ${status}`);
-        
-        // Get the request data first to get user information
-        const requestRef = doc(db, "help_requests", requestId);
-        const requestSnapshot = await getDoc(requestRef);
-        
-        if (!requestSnapshot.exists()) {
-            alert("Request not found");
-            return;
-        }
-        
-        const requestData = requestSnapshot.data();
-        const userEmail = requestData.userEmail;
-        const userId = requestData.userId;
-        
-        console.log(`Request data found - UserID: ${userId}, Email: ${userEmail}`);
-        
         // Update status in Firestore
+        const requestRef = doc(db, "help_requests", requestId);
         await updateDoc(requestRef, {
             status: status,
-            updatedAt: new Date(),
-            notificationSent: true
+            updatedAt: new Date()
         });
-        
-        console.log(`Request ${requestId} status updated to ${status}`);
-        
-        // Get user's document to check for FCM token
-        if (userId) {
-            try {
-                console.log(`Checking for user document: ${userId}`);
-                const userRef = doc(db, "users", userId);
-                const userSnapshot = await getDoc(userRef);
-                
-                if (userSnapshot.exists()) {
-                    console.log(`User document exists. Has FCM token: ${!!userSnapshot.data().fcmToken}`);
-                    
-                    const fcmToken = userSnapshot.data().fcmToken;
-                    
-                    // Create a notification record
-                    const notificationsRef = collection(db, "notifications");
-                    const newNotification = {
-                        userId: userId,
-                        userEmail: userEmail,
-                        requestId: requestId,
-                        status: status,
-                        message: `Your roadside assistance request has been ${status}`,
-                        timestamp: new Date(),
-                        read: false
-                    };
-                    
-                    // Add FCM token if available
-                    if (fcmToken) {
-                        newNotification.fcmToken = fcmToken;
-                    }
-                    
-                    const notificationRef = await addDoc(notificationsRef, newNotification);
-                    console.log(`Notification created with ID: ${notificationRef.id}`);
-                } else {
-                    console.log(`No user document found for ID: ${userId}`);
-                }
-            } catch (error) {
-                console.error("Error sending notification:", error);
-                // Continue with the status update even if notification fails
-            }
-        } else {
-            console.warn("No userId found in the request data. Cannot send notification.");
-        }
         
         // Close modal
         requestDetailsModal.style.display = 'none';
         
         // Show success message
-        alert(`Request ${status} successfully. User will be notified.`);
+        alert(`Request ${status} successfully`);
     } catch (error) {
         console.error("Error updating request status: ", error);
         alert("Error updating request status. Please try again.");
@@ -504,19 +455,264 @@ function showLoading(show) {
     }
 }
 
+// Set up SOS alerts listener
+function setupSOSListener() {
+    // Clear any existing SOS listener
+    if (sosUnsubscribe) {
+        sosUnsubscribe();
+        sosUnsubscribe = null;
+    }
+    
+    sosLoadingIndicator.style.display = 'flex';
+    sosTableBody.innerHTML = '';
+    noSosMessage.style.display = 'none';
+    
+    let q = collection(db, "sosAlerts");
+    q = query(q, orderBy("timestamp", "desc"));
+    
+    const selectedFilter = sosStatusFilter.value;
+    if (selectedFilter !== 'all') {
+        q = query(q, where("status", "==", selectedFilter));
+    }
+    
+    sosUnsubscribe = onSnapshot(q, (querySnapshot) => {
+        sosLoadingIndicator.style.display = 'none';
+        
+        // Store all SOS alerts in the allSOSAlerts array
+        allSOSAlerts = querySnapshot.docs.map(doc => {
+            return {
+                id: doc.id,
+                ...doc.data()
+            };
+        });
+        
+        if (querySnapshot.empty) {
+            noSosMessage.style.display = 'block';
+            sosTableBody.innerHTML = '';
+        } else {
+            noSosMessage.style.display = 'none';
+            
+            // Clear existing table rows
+            sosTableBody.innerHTML = '';
+            
+            // Populate table with SOS alerts
+            querySnapshot.forEach(doc => {
+                const sosAlert = doc.data();
+                const row = createSOSRow(doc.id, sosAlert);
+                sosTableBody.appendChild(row);
+            });
+        }
+    }, error => {
+        console.error('Error getting SOS alerts:', error);
+        sosLoadingIndicator.style.display = 'none';
+        noSosMessage.style.display = 'block';
+        noSosMessage.textContent = `Error loading data: ${error.message}`;
+    });
+}
+
+// Create a table row for an SOS alert
+function createSOSRow(id, sosAlert) {
+    const row = document.createElement('tr');
+    
+    // Format timestamp
+    let timestamp = 'N/A';
+    if (sosAlert.timestamp) {
+        if (sosAlert.timestamp.toDate) {
+            timestamp = new Date(sosAlert.timestamp.toDate()).toLocaleString();
+        } else if (sosAlert.timestamp.seconds) {
+            timestamp = new Date(sosAlert.timestamp.seconds * 1000).toLocaleString();
+        } else {
+            timestamp = new Date(sosAlert.timestamp).toLocaleString();
+        }
+    }
+    
+    // Create status badge
+    const statusBadge = document.createElement('span');
+    statusBadge.textContent = sosAlert.status || 'active';
+    statusBadge.className = `status-badge status-${sosAlert.status || 'active'}`;
+    if (sosAlert.status === 'active') {
+        statusBadge.classList.add('emergency');
+    }
+    
+    // Create location status badge
+    const locationBadge = document.createElement('span');
+    const hasLocation = sosAlert.latitude && sosAlert.longitude;
+    locationBadge.textContent = hasLocation ? 'Yes' : 'No';
+    locationBadge.className = `status-badge status-${hasLocation ? 'accepted' : 'rejected'}`;
+    
+    // Create view button
+    const viewBtn = document.createElement('button');
+    viewBtn.textContent = 'View Details';
+    viewBtn.className = 'btn btn-primary';
+    viewBtn.addEventListener('click', () => {
+        showSOSDetails(id);
+    });
+    
+    // Set row content
+    row.innerHTML = `
+        <td>${id}</td>
+        <td>${sosAlert.userName || 'Unknown'}</td>
+        <td>${timestamp}</td>
+        <td>${sosAlert.address || 'Location not available'}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+    `;
+    
+    // Add status badge to the status cell
+    row.cells[4].appendChild(statusBadge);
+    
+    // Add location badge to the location cell
+    row.cells[5].appendChild(locationBadge);
+    
+    // Add view button to the action cell
+    row.cells[6].appendChild(viewBtn);
+    
+    // Highlight emergency rows
+    if (sosAlert.status === 'active') {
+        row.classList.add('emergency-row');
+    }
+    
+    return row;
+}
+
+// Show SOS alert details in modal
+function showSOSDetails(sosId) {
+    currentSOSId = sosId;
+    
+    // Find the SOS alert in the array
+    const sosAlert = allSOSAlerts.find(alert => alert.id === sosId);
+    
+    if (!sosAlert) {
+        console.error(`SOS alert with ID ${sosId} not found`);
+        return;
+    }
+    
+    // Format timestamp
+    let timestamp = 'N/A';
+    if (sosAlert.timestamp) {
+        if (sosAlert.timestamp.toDate) {
+            timestamp = new Date(sosAlert.timestamp.toDate()).toLocaleString();
+        } else if (sosAlert.timestamp.seconds) {
+            timestamp = new Date(sosAlert.timestamp.seconds * 1000).toLocaleString();
+        } else {
+            timestamp = new Date(sosAlert.timestamp).toLocaleString();
+        }
+    }
+    
+    // Build details HTML
+    let detailsHTML = `
+        <div class="detail-item">
+            <strong>Alert ID:</strong> ${sosId}
+        </div>
+        <div class="detail-item">
+            <strong>User:</strong> ${sosAlert.userName || 'Unknown'}
+        </div>
+        <div class="detail-item">
+            <strong>User ID:</strong> ${sosAlert.userId || 'Unknown'}
+        </div>
+        <div class="detail-item">
+            <strong>Time:</strong> ${timestamp}
+        </div>
+        <div class="detail-item">
+            <strong>Status:</strong> ${sosAlert.status || 'active'}
+        </div>
+    `;
+    
+    // Add location information if available
+    if (sosAlert.latitude && sosAlert.longitude) {
+        detailsHTML += `
+            <div class="detail-item">
+                <strong>Location:</strong> ${sosAlert.address || 'Address not available'}
+            </div>
+            <div class="detail-item">
+                <strong>Coordinates:</strong> ${sosAlert.latitude}, ${sosAlert.longitude}
+            </div>
+            <div class="detail-item map-container">
+                <strong>Map:</strong><br>
+                <a href="https://www.google.com/maps?q=${sosAlert.latitude},${sosAlert.longitude}" target="_blank" class="btn btn-sm btn-info">Open in Google Maps</a>
+            </div>
+        `;
+    } else {
+        detailsHTML += `
+            <div class="detail-item">
+                <strong>Location:</strong> Location data not available
+            </div>
+        `;
+    }
+    
+    // Add notes if available
+    if (sosAlert.notes) {
+        detailsHTML += `
+            <div class="detail-item">
+                <strong>Notes:</strong> ${sosAlert.notes}
+            </div>
+        `;
+    }
+    
+    // Set the details content
+    sosDetailsContent.innerHTML = detailsHTML;
+    
+    // Show/hide buttons based on status
+    if (sosAlert.status === 'active') {
+        resolveButton.style.display = 'block';
+    } else {
+        resolveButton.style.display = 'none';
+    }
+    
+    // Set up resolve button event listener
+    resolveButton.onclick = () => {
+        updateSOSStatus(sosId, 'resolved');
+    };
+    
+    // Set up contact button event listener
+    contactButton.onclick = () => {
+        // Implement contact functionality (e.g., show contact options)
+        alert(`Contact information for ${sosAlert.userName || 'user'}: ${sosAlert.userPhone || 'Phone not available'}`);
+    };
+    
+    // Display the modal
+    sosModal.style.display = 'block';
+}
+
+// Update SOS alert status
+function updateSOSStatus(sosId, status) {
+    const sosRef = doc(db, "sosAlerts", sosId);
+    
+    updateDoc(sosRef, {
+        status: status,
+        resolvedAt: new Date()
+    })
+        .then(() => {
+            console.log(`SOS alert ${sosId} status updated to ${status}`);
+            sosModal.style.display = 'none';
+        })
+        .catch((error) => {
+            console.error("Error updating SOS alert status: ", error);
+            alert(`Error updating status: ${error.message}`);
+        });
+}
+
 // Init function updated to hide admin management initially
 function init() {
-    // Hide admin content and admin management initially
-    adminContent.style.display = 'none';
+    // Set default tab to requests
+    requestsTab.classList.add('active');
+    sosTab.classList.remove('active');
+    requestsSection.style.display = 'block';
+    sosSection.style.display = 'none';
     
-    // Ensure loading indicator is hidden initially
-    loadingIndicator.style.display = 'none';
+    // Hide admin management section initially
+    document.getElementById('admin-management').style.display = 'none';
+    
+    // Show loading indicator
+    showLoading(true);
+    
+    // Set up SOS listener
+    setupSOSListener();
 }
 
 // Start the app
 init();
-
-// Admin create form submission
 adminCreateForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -531,95 +727,22 @@ adminCreateForm.addEventListener('submit', async (e) => {
     showAdminStatus('', null);
     
     try {
-        // First, check if the user exists in Firebase Authentication
-        // Since we can't directly query Auth from client side, we'll look for existing Firestore documents
-        // that might have the user's info
-        
-        // Check for existing user documents with this email
-        showAdminStatus(`Checking for user: ${userEmail}...`, null);
-        
-        // Try to find any user document with this email (in users collection)
+        // Query Firestore to find the user by email
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", userEmail));
         const querySnapshot = await getDocs(q);
         
         if (querySnapshot.empty) {
-            // Next, try to find a document in notifications or help_requests that might have the user's ID
-            showAdminStatus(`Searching for user UID across multiple collections...`, null);
-            
-            let foundUserId = null;
-            
-            // Check notifications collection
-            const notificationsRef = collection(db, "notifications");
-            const notificationsQuery = query(notificationsRef, where("userEmail", "==", userEmail), limit(1));
-            const notificationsSnapshot = await getDocs(notificationsQuery);
-            
-            if (!notificationsSnapshot.empty) {
-                foundUserId = notificationsSnapshot.docs[0].data().userId;
-                showAdminStatus(`Found user ID in notifications: ${foundUserId}`, null);
-            } else {
-                // Check help_requests collection
-                const requestsRef = collection(db, "help_requests");
-                const requestsQuery = query(requestsRef, where("userEmail", "==", userEmail), limit(1));
-                const requestsSnapshot = await getDocs(requestsQuery);
-                
-                if (!requestsSnapshot.empty) {
-                    foundUserId = requestsSnapshot.docs[0].data().userId;
-                    showAdminStatus(`Found user ID in help requests: ${foundUserId}`, null);
-                }
-            }
-            
-            if (foundUserId) {
-                // We found the user ID, now create a user document with it
-                const newUserData = {
-                    email: userEmail,
-                    role: "admin",
-                    name: "",
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    isVerified: false
-                };
-                
-                const userRef = doc(db, "users", foundUserId);
-                await setDoc(userRef, newUserData);
-                
-                showAdminStatus(`User ${userEmail} was added as admin with the correct UID!`, true);
-                userEmailInput.value = '';
-                return;
-            }
-            
-            // If we still haven't found the user, create a temporary document
-            showAdminStatus(`Creating temporary document. User may need to sign in once more to fully enable admin privileges.`, null);
-            
-            // Create new user document with admin role
-            const newUserData = {
-                email: userEmail,
-                role: "admin",
-                name: "",
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                isVerified: false,
-                isTemporary: true  // Mark as temporary
-            };
-            
-            // Use email as document ID but in a format that won't conflict with actual UIDs
-            const safeId = `temp_${userEmail.replace(/[.@]/g, '_')}`;
-            const userRef = doc(db, "users", safeId);
-            
-            await setDoc(userRef, newUserData);
-            
-            showAdminStatus(`Temporary admin document created for ${userEmail}. Admin privileges will be enabled when they next sign in.`, true);
-            
-            // Clear form
-            userEmailInput.value = '';
+            showAdminStatus(`No user found with email: ${userEmail}`, false);
             return;
         }
         
-        // User document exists, check if it's already an admin
+        // Get the first user document
         const userDoc = querySnapshot.docs[0];
         const userId = userDoc.id;
         const userData = userDoc.data();
         
+        // Check if user is already an admin
         if (userData.role === "admin") {
             showAdminStatus(`User ${userEmail} is already an admin`, false);
             return;
@@ -632,7 +755,10 @@ adminCreateForm.addEventListener('submit', async (e) => {
             updatedAt: new Date()
         });
         
+        // Show success message
         showAdminStatus(`User ${userEmail} has been set as an admin successfully!`, true);
+        
+        // Clear form
         userEmailInput.value = '';
     } catch (error) {
         console.error("Error setting user as admin:", error);
@@ -642,7 +768,7 @@ adminCreateForm.addEventListener('submit', async (e) => {
 
 // Show admin status message
 function showAdminStatus(message, isSuccess) {
-    adminStatus.innerHTML = message; // Use innerHTML to allow line breaks
+    adminStatus.textContent = message;
     
     // Reset classes
     adminStatus.classList.remove('success', 'error');
@@ -651,19 +777,5 @@ function showAdminStatus(message, isSuccess) {
         adminStatus.classList.add('success');
     } else if (isSuccess === false) {
         adminStatus.classList.add('error');
-    }
-    
-    // Add some styling for better readability of long messages
-    if (message && message.length > 50) {
-        adminStatus.style.whiteSpace = 'pre-line';
-        adminStatus.style.lineHeight = '1.5';
-        adminStatus.style.padding = '10px';
-        
-        // Replace the exclamation mark and "IMPORTANT" with breaks for readability
-        adminStatus.innerHTML = adminStatus.innerHTML
-            .replace('! IMPORTANT:', '!<br><br><strong>IMPORTANT:</strong><br>');
-    } else {
-        adminStatus.style.whiteSpace = 'normal';
-        adminStatus.style.padding = '5px';
     }
 } 
