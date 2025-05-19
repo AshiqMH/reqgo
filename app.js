@@ -73,32 +73,13 @@ let unsubscribe = null;
 // Authentication state observer
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        // Get user document to check admin status
-        const userDocRef = doc(db, "users", user.uid);
-        getDoc(userDocRef).then((docSnapshot) => {
-            if (docSnapshot.exists()) {
-                const userData = docSnapshot.data();
-                if (userData && userData.isAdmin === true) {
-                    // User is admin
-                    loginContainer.style.display = 'none';
-                    adminContent.style.display = 'block';
-                    userEmail.textContent = user.email;
-                    
-                    // Set up Firestore listener based on current filter
-                    setupFirestoreListener();
-                } else {
-                    // Not an admin, sign them out
-                    signOut(auth).then(() => {
-                        loginError.textContent = "Access denied. Admin privileges required.";
-                    });
-                }
-            } else {
-                // User document doesn't exist
-                signOut(auth).then(() => {
-                    loginError.textContent = "Error verifying account. Please try again.";
-                });
-            }
-        });
+        // User is signed in
+        loginContainer.style.display = 'none';
+        adminContent.style.display = 'block';
+        userEmail.textContent = user.email;
+        
+        // Set up Firestore listener based on current filter
+        setupFirestoreListener();
     } else {
         // User is signed out
         loginContainer.style.display = 'block';
@@ -133,25 +114,21 @@ loginForm.addEventListener('submit', (e) => {
                     if (docSnapshot.exists()) {
                         const userData = docSnapshot.data();
                         
-                        // Check if user is an admin
-                        if (userData && userData.isAdmin === true) {
-                            // Allow access to admin panel
-                            loginContainer.style.display = 'none';
-                            adminContent.style.display = 'block';
-                            userEmail.textContent = user.email;
-                            
-                            // Set up Firestore listener based on current filter
-                            setupFirestoreListener();
+                        // Check if user has admin role
+                        if (userData.role === "admin") {
+                            // User is admin, proceed with login
+                            console.log("Admin login successful");
+                            // Auth state change listener will handle the rest
                         } else {
-                            // Not an admin, sign them out
+                            // User is not an admin, sign them out
                             signOut(auth).then(() => {
-                                loginError.textContent = "Access denied. Admin privileges required.";
+                                loginError.textContent = "Access denied. Only administrators can access this panel.";
                             });
                         }
                     } else {
                         // User document doesn't exist
                         signOut(auth).then(() => {
-                            loginError.textContent = "Error verifying account. Please try again.";
+                            loginError.textContent = "User profile not found. Please contact support.";
                         });
                     }
                 })
@@ -448,30 +425,28 @@ function init() {
 function setupTabNavigation() {
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabPanes = document.querySelectorAll('.tab-pane');
-
+    
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
             // Remove active class from all buttons and panes
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabPanes.forEach(pane => pane.classList.remove('active'));
-
+            
             // Add active class to clicked button
             button.classList.add('active');
-
-            // Show corresponding pane
-            const tabId = button.id;
-            const paneId = tabId.replace('tab-', '') + '-tab-content';
-            const pane = document.getElementById(paneId);
-            if (pane) {
-                pane.classList.add('active');
+            
+            // Get the target tab content id from the button id
+            const targetId = button.id.replace('tab-', '') + '-tab-content';
+            const targetPane = document.getElementById(targetId);
+            
+            if (targetPane) {
+                targetPane.classList.add('active');
                 
-                // Load data based on active tab
-                if (paneId === 'sos-tab-content') {
+                // Load data for the active tab if needed
+                if (targetId === 'sos-tab-content') {
                     loadSosAlerts();
-                } else if (paneId === 'requests-tab-content') {
+                } else if (targetId === 'requests-tab-content') {
                     setupFirestoreListener();
-                } else if (paneId === 'reports-tab-content') {
-                    loadIncidentReports();
                 }
             }
         });
@@ -552,95 +527,6 @@ function showAdminStatus(message, isSuccess) {
     } else if (isSuccess === false) {
         adminStatus.classList.add('error');
     }
-}
-
-// ==================== Incident Reports Feature ====================
-
-function loadIncidentReports() {
-    const body = document.getElementById('reports-table-body');
-    const loading = document.getElementById('reports-loading');
-    const noData = document.getElementById('reports-no-data');
-    const statusFilter = document.getElementById('report-status-filter');
-    const totalCountEl = document.getElementById('reports-total-count');
-
-    body.innerHTML = '';
-    loading.style.display = 'flex';
-    noData.style.display = 'none';
-
-    let q = collection(db, "incidents");
-    q = query(q, orderBy("timestamp", "desc"));
-
-    const selectedStatus = statusFilter.value;
-    if (selectedStatus !== 'all') {
-        q = query(q, where("status", "==", selectedStatus.toUpperCase()));
-    }
-
-    getDocs(q)
-        .then(snapshot => {
-            loading.style.display = 'none';
-            totalCountEl.textContent = snapshot.size;
-
-            if (snapshot.empty) {
-                noData.style.display = 'block';
-                return;
-            }
-
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const time = data.timestamp?.seconds
-                    ? new Date(data.timestamp.seconds * 1000).toLocaleString()
-                    : 'N/A';
-
-                const row = document.createElement('tr');
-
-                const status = data.status || 'REPORTED';
-                const badge = `<span class="status-badge status-${status.toLowerCase()}">${status}</span>`;
-
-                row.innerHTML = `
-                    <td>${doc.id.slice(0, 8)}...</td>
-                    <td>${data.userId || 'N/A'}</td>
-                    <td>${data.type || 'N/A'}</td>
-                    <td>${data.description || 'N/A'}</td>
-                    <td>${badge}</td>
-                    <td>${time}</td>
-                    <td>
-                        <button class="btn btn-success" onclick="markIncidentReviewed('${doc.id}')">
-                            Mark Reviewed
-                        </button>
-                    </td>
-                `;
-                body.appendChild(row);
-            });
-        })
-        .catch(error => {
-            console.error("Error loading incident reports:", error);
-            loading.style.display = 'none';
-            noData.style.display = 'block';
-            noData.textContent = "Failed to load reports.";
-        });
-}
-
-async function markIncidentReviewed(id) {
-    try {
-        const ref = doc(db, "incidents", id);
-        await updateDoc(ref, {
-            status: "REVIEWED",
-            updatedAt: new Date()
-        });
-        alert("Incident marked as reviewed.");
-        loadIncidentReports();
-    } catch (err) {
-        console.error("Error updating incident:", err);
-        alert("Failed to update incident.");
-    }
-}
-
-window.markIncidentReviewed = markIncidentReviewed;
-
-// Event listeners for incident reports
-const reportStatusFilter = document.getElementById('report-status-filter');
-if (reportStatusFilter) {
-    reportStatusFilter.addEventListener('change', loadIncidentReports);
 }
 
 // ==================== SOS Alerts Feature ====================
@@ -797,108 +683,6 @@ if (sosFilterDropdown) {
     sosFilterDropdown.addEventListener('change', loadSosAlerts);
 }
 
-// Function to load incident reports
-async function loadIncidentReports() {
-    const loadingIndicator = document.getElementById('reports-loading');
-    const noData = document.getElementById('reports-no-data');
-    const reportsTableBody = document.getElementById('reports-table-body');
-
-    if (loadingIndicator) loadingIndicator.style.display = 'flex';
-    if (noData) noData.style.display = 'none';
-    if (reportsTableBody) reportsTableBody.innerHTML = '';
-
-    try {
-        const incidentsRef = collection(db, 'incidents');
-        const q = query(incidentsRef, orderBy('timestamp', 'desc'));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            if (loadingIndicator) loadingIndicator.style.display = 'none';
-            if (noData) noData.style.display = 'block';
-            return;
-        }
-
-        querySnapshot.forEach(doc => {
-            const data = doc.data();
-            const row = document.createElement('tr');
-
-            // Format timestamp
-            const timestamp = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString() : 'N/A';
-
-            // Create status badge
-            const statusBadge = document.createElement('span');
-            statusBadge.className = `status-badge ${data.status || 'reported'}`;
-            statusBadge.textContent = data.status ? data.status.charAt(0).toUpperCase() + data.status.slice(1) : 'Reported';
-
-            // Create action cell
-            const actionCell = document.createElement('td');
-            if (data.status === 'reported') {
-                const reviewButton = document.createElement('button');
-                reviewButton.className = 'btn btn-primary btn-sm';
-                reviewButton.innerHTML = '<i class="fas fa-eye"></i> Review';
-                reviewButton.onclick = () => reviewIncident(doc.id);
-                actionCell.appendChild(reviewButton);
-            } else {
-                const statusLabel = document.createElement('span');
-                statusLabel.className = 'status-label';
-                statusLabel.textContent = 'Reviewed';
-                statusLabel.style.opacity = '0.7';
-                statusLabel.style.cursor = 'default';
-                actionCell.appendChild(statusLabel);
-            }
-
-            // Build the row
-            row.innerHTML = `
-                <td>${doc.id.slice(0, 8)}...</td>
-                <td>${data.userId || 'N/A'}</td>
-                <td>${data.type || 'N/A'}</td>
-                <td>${data.description || 'N/A'}</td>
-                <td>${timestamp}</td>
-            `;
-
-            // Insert status cell
-            const statusCell = document.createElement('td');
-            statusCell.appendChild(statusBadge);
-            row.insertBefore(statusCell, row.children[4]);
-
-            // Add action button
-            row.appendChild(actionCell);
-
-            reportsTableBody.appendChild(row);
-        });
-
-        // Update total reports count
-        const totalReports = document.getElementById('total-reports');
-        if (totalReports) totalReports.textContent = querySnapshot.size;
-
-    } catch (error) {
-        console.error('Error loading incident reports:', error);
-        if (loadingIndicator) loadingIndicator.style.display = 'none';
-        if (noData) {
-            noData.textContent = 'Failed to load incident reports.';
-            noData.style.display = 'block';
-        }
-    } finally {
-        if (loadingIndicator) loadingIndicator.style.display = 'none';
-    }
-}
-
-// Function to review an incident
-async function reviewIncident(id) {
-    try {
-        const incidentRef = doc(db, 'incidents', id);
-        await updateDoc(incidentRef, {
-            status: 'reviewed',
-            reviewedAt: new Date()
-        });
-        alert('Incident marked as reviewed.');
-        loadIncidentReports(); // Refresh the list
-    } catch (err) {
-        console.error('Error updating incident:', err);
-        alert('Failed to mark as reviewed.');
-    }
-}
-
 // Load initial data when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize other components first
@@ -917,8 +701,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadSosAlerts();
                 } else if (activeTab.id === 'requests-tab-content') {
                     setupFirestoreListener();
-                } else if (activeTab.id === 'reports-tab-content') {
-                    loadIncidentReports();
                 }
             }
         }
