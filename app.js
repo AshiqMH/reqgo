@@ -73,13 +73,32 @@ let unsubscribe = null;
 // Authentication state observer
 onAuthStateChanged(auth, (user) => {
     if (user) {
-        // User is signed in
-        loginContainer.style.display = 'none';
-        adminContent.style.display = 'block';
-        userEmail.textContent = user.email;
-        
-        // Set up Firestore listener based on current filter
-        setupFirestoreListener();
+        // Get user document to check admin status
+        const userDocRef = doc(db, "users", user.uid);
+        getDoc(userDocRef).then((docSnapshot) => {
+            if (docSnapshot.exists()) {
+                const userData = docSnapshot.data();
+                if (userData && userData.isAdmin === true) {
+                    // User is admin
+                    loginContainer.style.display = 'none';
+                    adminContent.style.display = 'block';
+                    userEmail.textContent = user.email;
+                    
+                    // Set up Firestore listener based on current filter
+                    setupFirestoreListener();
+                } else {
+                    // Not an admin, sign them out
+                    signOut(auth).then(() => {
+                        loginError.textContent = "Access denied. Admin privileges required.";
+                    });
+                }
+            } else {
+                // User document doesn't exist
+                signOut(auth).then(() => {
+                    loginError.textContent = "Error verifying account. Please try again.";
+                });
+            }
+        });
     } else {
         // User is signed out
         loginContainer.style.display = 'block';
