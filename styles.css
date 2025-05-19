@@ -68,6 +68,39 @@ main {
     transition: background-color 0.3s ease;
 }
 
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-pending {
+    background-color: #ffd700;
+    color: #000;
+}
+
+.status-accepted {
+    background-color: #4caf50;
+    color: #fff;
+}
+
+.status-rejected {
+    background-color: #f44336;
+    color: #fff;
+}
+
+.status-reported {
+    background-color: #ff9800;
+    color: #fff;
+}
+
+.status-reviewed {
+    background-color: #4caf50;
+    color: #fff;
+}
+
 .btn-primary {
     background-color: var(--primary-color);
     color: white;

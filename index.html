@@ -61,6 +61,9 @@
                     <button id="tab-sos" class="tab-btn">
                         <i class="fas fa-exclamation-triangle"></i> SOS Alerts
                     </button>
+                    <button id="tab-reports" class="tab-btn">
+                        <i class="fas fa-flag"></i> Incident Reports
+                    </button>
                     <button id="tab-admin" class="tab-btn">
                         <i class="fas fa-user-shield"></i> Admin Management
                     </button>
@@ -196,6 +199,60 @@
                         </div>
                     </div>
                     
+                    <!-- Incident Reports Tab -->
+                    <div id="reports-tab-content" class="tab-pane">
+                        <h2>Incident Reports</h2>
+                        
+                        <!-- Dashboard Summary for Reports -->
+                        <div class="dashboard-summary">
+                            <div class="stat-card">
+                                <div class="stat-value" id="reports-total-count">0</div>
+                                <div class="stat-label">Total Reports</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Reports Filter Controls -->
+                        <div class="filter-controls">
+                            <label for="report-status-filter">Filter by Status:</label>
+                            <select id="report-status-filter" class="form-control">
+                                <option value="all">All</option>
+                                <option value="reported">Reported</option>
+                                <option value="reviewed">Reviewed</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Reports Table -->
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th><i class="fas fa-hashtag"></i> ID</th>
+                                        <th><i class="fas fa-user"></i> User</th>
+                                        <th><i class="fas fa-exclamation-circle"></i> Type</th>
+                                        <th><i class="fas fa-info-circle"></i> Description</th>
+                                        <th><i class="fas fa-check-circle"></i> Status</th>
+                                        <th><i class="fas fa-clock"></i> Time</th>
+                                        <th><i class="fas fa-tools"></i> Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reports-table-body">
+                                    <!-- Rows will be inserted here by JavaScript -->
+                                </tbody>
+                            </table>
+                            
+                            <!-- Loading indicator -->
+                            <div id="reports-loading" class="loading-indicator">
+                                <div class="spinner"></div>
+                                <p>Loading incident reports...</p>
+                            </div>
+                            
+                            <!-- No data message -->
+                            <div id="reports-no-data" class="no-data-message" style="display: none;">
+                                No incident reports found.
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Admin Management Tab -->
                     <div id="admin-tab-content" class="tab-pane">
                         <h2>Admin Management</h2>

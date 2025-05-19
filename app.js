@@ -529,6 +529,95 @@ function showAdminStatus(message, isSuccess) {
     }
 }
 
+// ==================== Incident Reports Feature ====================
+
+function loadIncidentReports() {
+    const body = document.getElementById('reports-table-body');
+    const loading = document.getElementById('reports-loading');
+    const noData = document.getElementById('reports-no-data');
+    const statusFilter = document.getElementById('report-status-filter');
+    const totalCountEl = document.getElementById('reports-total-count');
+
+    body.innerHTML = '';
+    loading.style.display = 'flex';
+    noData.style.display = 'none';
+
+    let q = collection(db, "incidents");
+    q = query(q, orderBy("timestamp", "desc"));
+
+    const selectedStatus = statusFilter.value;
+    if (selectedStatus !== 'all') {
+        q = query(q, where("status", "==", selectedStatus.toUpperCase()));
+    }
+
+    getDocs(q)
+        .then(snapshot => {
+            loading.style.display = 'none';
+            totalCountEl.textContent = snapshot.size;
+
+            if (snapshot.empty) {
+                noData.style.display = 'block';
+                return;
+            }
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const time = data.timestamp?.seconds
+                    ? new Date(data.timestamp.seconds * 1000).toLocaleString()
+                    : 'N/A';
+
+                const row = document.createElement('tr');
+
+                const status = data.status || 'REPORTED';
+                const badge = `<span class="status-badge status-${status.toLowerCase()}">${status}</span>`;
+
+                row.innerHTML = `
+                    <td>${doc.id.slice(0, 8)}...</td>
+                    <td>${data.userId || 'N/A'}</td>
+                    <td>${data.type || 'N/A'}</td>
+                    <td>${data.description || 'N/A'}</td>
+                    <td>${badge}</td>
+                    <td>${time}</td>
+                    <td>
+                        <button class="btn btn-success" onclick="markIncidentReviewed('${doc.id}')">
+                            Mark Reviewed
+                        </button>
+                    </td>
+                `;
+                body.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error("Error loading incident reports:", error);
+            loading.style.display = 'none';
+            noData.style.display = 'block';
+            noData.textContent = "Failed to load reports.";
+        });
+}
+
+async function markIncidentReviewed(id) {
+    try {
+        const ref = doc(db, "incidents", id);
+        await updateDoc(ref, {
+            status: "REVIEWED",
+            updatedAt: new Date()
+        });
+        alert("Incident marked as reviewed.");
+        loadIncidentReports();
+    } catch (err) {
+        console.error("Error updating incident:", err);
+        alert("Failed to update incident.");
+    }
+}
+
+window.markIncidentReviewed = markIncidentReviewed;
+
+// Event listeners for incident reports
+const reportStatusFilter = document.getElementById('report-status-filter');
+if (reportStatusFilter) {
+    reportStatusFilter.addEventListener('change', loadIncidentReports);
+}
+
 // ==================== SOS Alerts Feature ====================
 
 // Load and render SOS alerts
