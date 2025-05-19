@@ -114,21 +114,25 @@ loginForm.addEventListener('submit', (e) => {
                     if (docSnapshot.exists()) {
                         const userData = docSnapshot.data();
                         
-                        // Check if user has admin role
-                        if (userData.role === "admin") {
-                            // User is admin, proceed with login
-                            console.log("Admin login successful");
-                            // Auth state change listener will handle the rest
+                        // Check if user is an admin
+                        if (userData && userData.isAdmin === true) {
+                            // Allow access to admin panel
+                            loginContainer.style.display = 'none';
+                            adminContent.style.display = 'block';
+                            userEmail.textContent = user.email;
+                            
+                            // Set up Firestore listener based on current filter
+                            setupFirestoreListener();
                         } else {
-                            // User is not an admin, sign them out
+                            // Not an admin, sign them out
                             signOut(auth).then(() => {
-                                loginError.textContent = "Access denied. Only administrators can access this panel.";
+                                loginError.textContent = "Access denied. Admin privileges required.";
                             });
                         }
                     } else {
                         // User document doesn't exist
                         signOut(auth).then(() => {
-                            loginError.textContent = "User profile not found. Please contact support.";
+                            loginError.textContent = "Error verifying account. Please try again.";
                         });
                     }
                 })
